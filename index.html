@@ -8,6 +8,7 @@
         body {
             font-family: Arial, sans-serif;
             display: flex;
+            flex-direction: column; /* Изменено, чтобы ссылка была внизу */
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -33,6 +34,8 @@
             max-width: 600px;
             width: 100%;
             backdrop-filter: blur(6px);
+            margin-top: auto; /* Прижимает карточку к центру */
+            margin-bottom: auto;
         }
         
         h1 {
@@ -82,6 +85,21 @@
             transform: scale(0.98);
         }
 
+        /* Стили для ссылки на GitHub */
+        .github-link {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #999; /* Бледный цвет */
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .github-link:hover {
+            color: #666; /* Чуть темнее при наведении */
+            text-decoration: underline;
+        }
+
         /* Адаптация под телефоны */
         @media (max-width: 500px) {
             .landing-card {
@@ -112,6 +130,9 @@
         <!-- ССЫЛКА НА ТРЕНАЖЁР -->
         <a href="trainer.html" class="start-btn">Начать тренировку 🚀</a>
     </div>
+
+    <!-- Ссылка на GitHub -->
+    <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
 
 </body>
 </html>
