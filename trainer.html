@@ -12,7 +12,7 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            padding: 20px 10px 100px 10px; /* Отступы: сверху/снизу, по бокам */
+            padding: 20px 10px 130px 10px; /* Увеличили нижний отступ, чтобы поместилась ссылка и квадратики */
             box-sizing: border-box;
 
             background-color: #f0f0f0;
@@ -94,10 +94,10 @@
             background: #5a6268;
         }
 
-        /* Панель истории внизу (белый кружок убран) */
+        /* Панель истории внизу (без белого фона) */
         #history {
             position: fixed;
-            bottom: 15px;
+            bottom: 45px; /* Подняли выше, чтобы освободить место для ссылки */
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -107,7 +107,6 @@
             flex-wrap: wrap;
             max-width: 95vw;
             z-index: 100;
-            /* Убраны background и padding */
         }
         .history-square {
             width: 20px;
@@ -119,6 +118,24 @@
         .history-square.correct  { background-color: #28a745; }
         .history-square.wrong    { background-color: #dc3545; }
         .history-square.skipped  { background-color: #ffc107; }
+
+        /* Ссылка на GitHub внизу страницы */
+        .github-link {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #999; /* Бледный цвет */
+            text-decoration: none;
+            transition: color 0.2s;
+            z-index: 100;
+        }
+
+        .github-link:hover {
+            color: #666; /* Чуть темнее при наведении */
+            text-decoration: underline;
+        }
 
         /* --- МЕДИА-ЗАПРОС ДЛЯ ПК (экраны шире 600px) --- */
         @media (min-width: 600px) {
@@ -134,6 +151,9 @@
             }
             h1 {
                 font-size: 24px;
+            }
+            #history {
+                bottom: 50px; /* На ПК чуть больше отступ */
             }
         }
     </style>
@@ -156,6 +176,9 @@
 
     <!-- Панель истории -->
     <div id="history"></div>
+
+    <!-- Ссылка на GitHub -->
+    <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
 
     <script>
         let currentRoots = [];
