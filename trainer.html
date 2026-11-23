@@ -16,7 +16,7 @@
             box-sizing: border-box;
 
             background-color: #f0f0f0;
-            /* Сюда можно добавить background-image: url('...'); */
+            /* Сюда можно добавить background-image: url('bg.jpg'); */
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -94,7 +94,7 @@
             background: #5a6268;
         }
 
-        /* Панель истории внизу */
+        /* Панель истории внизу (белый кружок убран) */
         #history {
             position: fixed;
             bottom: 15px;
@@ -107,9 +107,7 @@
             flex-wrap: wrap;
             max-width: 95vw;
             z-index: 100;
-            background: rgba(255, 255, 255, 0.7); /* Легкий фон, чтобы не сливалось */
-            padding: 8px;
-            border-radius: 10px;
+            /* Убраны background и padding */
         }
         .history-square {
             width: 20px;
@@ -190,8 +188,6 @@
             document.getElementById('equation').textContent = eq;
             document.getElementById('result').textContent = '';
             document.getElementById('answer').value = '';
-            // На мобильных фокус лучше не ставить автоматически, чтобы не выскакивала клавиатура сразу
-            // document.getElementById('answer').focus();
         }
 
         function addToHistory(type) {
