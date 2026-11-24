@@ -167,6 +167,7 @@
             const norm = tokens.map(normalizeToken);
             console.log('NORMALIZED:', norm);
 
+            // 1. Склейка цифр + неявное умножение числа и x
             const merged = [];
             for (const t of norm) {
                 const isDigit = /^\d+$/.test(t);
@@ -189,17 +190,18 @@
                 }
             }
 
-            if (merged.length === 0) throw new Error('empty');
+            console.log('MERGED:', merged);
 
+            // 2. Разворачиваем "5*x" обратно в токены, отбрасывая пустые куски
             const flat = [];
             for (const t of merged) {
                 if (typeof t === 'string' && t.includes('*')) {
-                    const parts = t.split('*');
+                    const parts = t.split('*').filter(p => p !== '');
                     for (let k = 0; k < parts.length; k++) {
                         if (k > 0) flat.push('*');
                         flat.push(parts[k]);
                     }
-                } else {
+                } else if (t !== '') {
                     flat.push(t);
                 }
             }
@@ -209,6 +211,7 @@
             const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
             const hasX = flat.includes('x');
 
+            // 3. Равенство
             const eqIndex = flat.indexOf('=');
             if (eqIndex !== -1) {
                 if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
@@ -226,6 +229,7 @@
                 return { display: pretty, value: solveEquation(a, b) };
             }
 
+            // 4. Неравенство
             const cmpIndex = flat.indexOf('<');
             if (cmpIndex !== -1) {
                 if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
@@ -243,6 +247,7 @@
                 return { display: pretty, value: solveInequality(a, b) };
             }
 
+            // 5. Без '=' и '<'
             if (hasX) {
                 const { a, b } = toLinear(flat, []);
                 return { display: pretty, value: solveEquation(a, b) };
