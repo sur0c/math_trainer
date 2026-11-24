@@ -92,6 +92,27 @@
             font-family: Arial, sans-serif;
             user-select: none; pointer-events: none; z-index: 2000;
         }
+        .home-button {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 2000;
+            display: inline-block;
+            padding: 8px 14px;
+            background-color: #b0b0b0;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background-color 0.2s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .home-button:hover { background-color: #999; }
+        .home-button:active { background-color: #808080; }
         @media (max-width: 700px) {
             .tray { top: 6px; gap: 4px; }
             .square { width: 56px; height: 56px; font-size: 26px; }
@@ -105,6 +126,12 @@
             .calc-result { font-size: 20px; min-height: 26px; }
             .drop-indicator { height: 56px; width: 3px; }
             .version { font-size: 11px; right: 6px; bottom: 6px; }
+            .home-button {
+                top: 6px;
+                left: 6px;
+                padding: 7px 11px;
+                font-size: 13px;
+            }
         }
         @media (max-width: 380px) {
             .square { width: 48px; height: 48px; font-size: 22px; }
@@ -114,6 +141,8 @@
     </style>
 </head>
 <body>
+    <a href="index.html" class="home-button" aria-label="На главную">← На главную</a>
+
     <div class="container" id="container">
         <div class="tray" id="tray" role="toolbar" aria-label="Доступные квадраты"></div>
         <div class="stage">
