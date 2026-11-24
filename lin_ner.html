@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Собери промежуток — модульная версия (исправленная)</title>
+    <title>Собери промежуток — решение неравенств</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body {
@@ -45,6 +45,11 @@
             color: #8aa6bd; font-size: 1.15rem; font-weight: 500;
             user-select: none; pointer-events: none;
         }
+        /* Карточка в поле ответа выглядит аккуратно, без фокуса */
+        .answer-zone .card {
+            outline: none !important;
+            box-shadow: 0 0 0 2px #1a78c2 !important;
+        }
         .cards-area { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 28px; min-height: 90px; }
         .card {
             background: white; border-radius: 22px; padding: 12px 18px; font-size: 1.5rem;
@@ -54,13 +59,14 @@
             transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
         }
         .card:focus-visible { outline: 3px solid #1a78c2; outline-offset: 2px; }
-        .card.placed { background: #d4e9ff; border: 2px solid #1a78c2; box-shadow: 0 0 0 4px #a0c8f0; }
+        .card.placed { background: #d4e9ff; border: 2px solid #1a78c2; }
         .card.correct-highlight { background: #c8e6d0; border: 2px solid #1d7a47; }
         .card.wrong-highlight { background: #fad1d1; border: 2px solid #b33b3b; }
         .card.disabled { pointer-events: none; opacity: 0.75; }
         .card.ghost { position: fixed; pointer-events: none; z-index: 1000; opacity: 0.9; }
         .card.selected { border: 2px solid #1a78c2; background: #e8f3ff; }
         .card.dragging { opacity: 0.35; }
+        
         .controls { display: flex; justify-content: center; gap: 16px; margin-top: 6px; flex-wrap: wrap; }
         button {
             border: none; background: #1a3e60; color: white; padding: 15px 30px;
@@ -68,12 +74,20 @@
         }
         button.secondary { background: #fff; color: #1a3e60; box-shadow: 0 0 0 1px #bdd3e6 inset; }
         button:disabled { opacity: 0.45; pointer-events: none; }
-        .message-area { text-align: center; margin-top: 22px; min-height: 54px; font-size: 1.25rem; }
-        .score-badge { background: #fff; padding: 9px 20px; border-radius: 60px; font-weight: 600; }
+        
+        .message-area { 
+            text-align: center; margin-top: 22px; min-height: 54px; font-size: 1.25rem; 
+            display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+        }
         .feedback-success { color: #1d7a47; background: #e2f3e6; padding: 9px 24px; border-radius: 60px; }
         .feedback-error { color: #b33b3b; background: #fce4e4; padding: 9px 24px; border-radius: 60px; }
+        /* Запрещаем перенос внутри правильного интервала */
+        .nowrap-interval { white-space: nowrap; }
+        
         .footer { margin-top: 18px; display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; align-items: center; }
+        .score-badge { background: #fff; padding: 9px 20px; border-radius: 60px; font-weight: 600; box-shadow: 0 0 0 1px #bdd3e6 inset; }
         .reset-btn { background: transparent; color: #1a3e60; box-shadow: 0 0 0 1.5px #bdd3e6 inset; padding: 11px 22px; font-size: 0.95rem; }
+        
         @media (max-width: 700px) {
             .inequality-box { font-size: 1.7rem; }
             .card { font-size: 1.1rem; }
@@ -102,7 +116,7 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- МОДУЛЬ 1: ГЕНЕРАТОР ЗАДАЧ (чистая математика, без DOM)      -->
+<!-- МОДУЛЬ 1: ГЕНЕРАТОР ЗАДАЧ                                   -->
 <!-- ============================================================ -->
 <script>
     const TaskGenerator = (function() {
@@ -118,6 +132,14 @@
             const ls = (left === -Infinity) ? '-∞' : left;
             const rs = (right === Infinity) ? '+∞' : right;
             return `${lb}${ls}, ${rs}${rb}`;
+        }
+
+        // Проверка, что интервал валиден (левая граница не больше правой)
+        function isValidInterval(l, r, lInc, rInc) {
+            if (l === r) {
+                return lInc && rInc; // [x, x] — валидная точка, (x, x) — пусто
+            }
+            return l < r;
         }
 
         function shuffle(arr) {
@@ -142,7 +164,9 @@
         }
 
         function buildDistractors(correct, pool, tricky = []) {
+            // Оставляем только валидные интервалы
             const all = [...new Set([...pool, ...tricky])].filter(s => s !== correct);
+            // Дополнительная проверка на пустоту/невалидность не нужна, т.к. мы фильтруем при создании пула
             shuffle(all);
             const trickyF = tricky.filter(s => s !== correct && !pool.includes(s));
             shuffle(trickyF);
@@ -150,7 +174,6 @@
             const rest = all.filter(s => !priority.includes(s));
             let wrong = [...priority, ...rest.slice(0, WRONG_COUNT - priority.length)];
 
-            // Fallback: добираем, если не хватает
             if (wrong.length < WRONG_COUNT) {
                 const remaining = all.filter(s => !wrong.includes(s));
                 for (let i = 0; i < remaining.length && wrong.length < WRONG_COUNT; i++) {
@@ -178,20 +201,25 @@
             else if (b < 0) eq += ` - ${Math.abs(b)}`;
             eq += ` ${op} ${c}`;
 
-            const pool = [
-                formatInterval(x0, Infinity, true, false),
-                formatInterval(x0, Infinity, false, false),
-                formatInterval(-Infinity, x0, true, false),
-                formatInterval(-Infinity, x0, false, true),
-                formatInterval(-Infinity, x0, false, false),
-                formatInterval(x0 - 1, Infinity, false, false),
-                formatInterval(x0 + 1, Infinity, false, false),
-                formatInterval(-Infinity, x0 - 1, false, false),
-                formatInterval(-Infinity, x0 + 1, false, false),
-                formatInterval(-x0, Infinity, false, false),
-                formatInterval(-Infinity, -x0, false, false),
-                formatInterval(-x0, x0, false, false),
+            // Собираем пул только из валидных интервалов
+            const rawPool = [
+                { l: x0, r: Infinity, li: true, ri: false },
+                { l: x0, r: Infinity, li: false, ri: false },
+                { l: -Infinity, r: x0, li: false, ri: true },
+                { l: -Infinity, r: x0, li: false, ri: false },
+                { l: x0 - 1, r: Infinity, li: false, ri: false },
+                { l: x0 + 1, r: Infinity, li: false, ri: false },
+                { l: -Infinity, r: x0 - 1, li: false, ri: false },
+                { l: -Infinity, r: x0 + 1, li: false, ri: false },
+                { l: -x0, r: Infinity, li: false, ri: false },
+                { l: -Infinity, r: -x0, li: false, ri: false },
+                { l: -x0, r: x0, li: false, ri: false },
             ];
+            
+            const pool = rawPool
+                .filter(p => isValidInterval(p.l, p.r, p.li, p.ri))
+                .map(p => formatInterval(p.l, p.r, p.li, p.ri));
+
             return { equation: eq, correctInterval: correct, options: buildDistractors(correct, pool) };
         }
 
@@ -266,29 +294,49 @@
                 const right = formatRight(d, e);
                 const eq = `${left} ${op} ${right}`;
 
-                const pool = [
-                    formatInterval(x0, Infinity, true, false), formatInterval(x0, Infinity, false, false),
-                    formatInterval(-Infinity, x0, true, false), formatInterval(-Infinity, x0, false, true),
-                    formatInterval(-Infinity, x0, false, false), formatInterval(x0 - 1, Infinity, false, false),
-                    formatInterval(x0 + 1, Infinity, false, false), formatInterval(-Infinity, x0 - 1, false, false),
-                    formatInterval(-Infinity, x0 + 1, false, false), formatInterval(x0 - 1, Infinity, true, false),
-                    formatInterval(x0 + 1, Infinity, true, false), formatInterval(-Infinity, x0 - 1, false, true),
-                    formatInterval(-Infinity, x0 + 1, false, true), formatInterval(-x0, Infinity, false, false),
-                    formatInterval(-x0, Infinity, true, false), formatInterval(-Infinity, -x0, false, false),
-                    formatInterval(-Infinity, -x0, false, true), formatInterval(-x0 - 1, Infinity, false, false),
-                    formatInterval(-x0 + 1, Infinity, false, false), formatInterval(-Infinity, -x0 - 1, false, false),
-                    formatInterval(-Infinity, -x0 + 1, false, false), formatInterval(-x0, x0, false, false),
-                    formatInterval(-x0, x0, true, true),
+                // Собираем сырые интервалы и фильтруем невалидные
+                const rawPool = [
+                    { l: x0, r: Infinity, li: true, ri: false },
+                    { l: x0, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: x0, li: false, ri: true },
+                    { l: -Infinity, r: x0, li: false, ri: false },
+                    { l: x0 - 1, r: Infinity, li: false, ri: false },
+                    { l: x0 + 1, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: x0 - 1, li: false, ri: false },
+                    { l: -Infinity, r: x0 + 1, li: false, ri: false },
+                    { l: x0 - 1, r: Infinity, li: true, ri: false },
+                    { l: x0 + 1, r: Infinity, li: true, ri: false },
+                    { l: -Infinity, r: x0 - 1, li: false, ri: true },
+                    { l: -Infinity, r: x0 + 1, li: false, ri: true },
+                    { l: -x0, r: Infinity, li: false, ri: false },
+                    { l: -x0, r: Infinity, li: true, ri: false },
+                    { l: -Infinity, r: -x0, li: false, ri: false },
+                    { l: -Infinity, r: -x0, li: false, ri: true },
+                    { l: -x0 - 1, r: Infinity, li: false, ri: false },
+                    { l: -x0 + 1, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: -x0 - 1, li: false, ri: false },
+                    { l: -Infinity, r: -x0 + 1, li: false, ri: false },
+                    { l: -x0, r: x0, li: false, ri: false },
+                    { l: -x0, r: x0, li: true, ri: true },
                 ];
-                const tricky = [
-                    `${formatInterval(-Infinity, x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`,
-                    `${formatInterval(-Infinity, x0 - 1, false, false)} ∪ ${formatInterval(x0 + 1, Infinity, false, false)}`,
-                    `${formatInterval(-Infinity, -x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`,
-                    formatInterval(x0, x0 + 1, true, true),
-                    formatInterval(x0 - 1, x0, true, true),
-                    formatInterval(-x0 - 1, -x0, false, false),
-                    formatInterval(-x0, -x0 + 1, false, false),
+
+                const rawTricky = [
+                    // Объединения строкой, но валидные
+                    { s: `${formatInterval(-Infinity, x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`, v: true },
+                    { s: `${formatInterval(-Infinity, x0 - 1, false, false)} ∪ ${formatInterval(x0 + 1, Infinity, false, false)}`, v: true },
+                    { s: `${formatInterval(-Infinity, -x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`, v: true },
+                    { s: formatInterval(x0, x0 + 1, true, true), v: isValidInterval(x0, x0 + 1, true, true) },
+                    { s: formatInterval(x0 - 1, x0, true, true), v: isValidInterval(x0 - 1, x0, true, true) },
+                    { s: formatInterval(-x0 - 1, -x0, false, false), v: isValidInterval(-x0 - 1, -x0, false, false) },
+                    { s: formatInterval(-x0, -x0 + 1, false, false), v: isValidInterval(-x0, -x0 + 1, false, false) },
                 ];
+
+                const pool = rawPool
+                    .filter(p => isValidInterval(p.l, p.r, p.li, p.ri))
+                    .map(p => formatInterval(p.l, p.r, p.li, p.ri));
+                
+                const tricky = rawTricky.filter(t => t.v).map(t => t.s);
+
                 return { equation: eq, correctInterval: correct, options: buildDistractors(correct, pool, tricky) };
             }
             return generateEasy();
@@ -306,7 +354,7 @@
 </script>
 
 <!-- ============================================================ -->
-<!-- МОДУЛЬ 2: UI (только DOM-операции, никакой логики игры)     -->
+<!-- МОДУЛЬ 2: UI                                                -->
 <!-- ============================================================ -->
 <script>
     const GameUI = (function() {
@@ -323,11 +371,9 @@
 
         return {
             els,
-            // Метод для DragDropManager: прямоугольник зоны ответа
             getAnswerZoneRect() {
                 return els.answerZone.getBoundingClientRect();
             },
-            // Метод для DragDropManager: проверка, попала ли точка в зону
             isPointInAnswerZone(x, y) {
                 const r = els.answerZone.getBoundingClientRect();
                 return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
@@ -394,7 +440,7 @@
 </script>
 
 <!-- ============================================================ -->
-<!-- МОДУЛЬ 3: DRAG & DROP (независим, получает колбэки в init)  -->
+<!-- МОДУЛЬ 3: DRAG & DROP                                       -->
 <!-- ============================================================ -->
 <script>
     const DragDropManager = (function() {
@@ -494,7 +540,7 @@
 </script>
 
 <!-- ============================================================ -->
-<!-- МОДУЛЬ 4: ИГРА (оркестратор: связывает генератор, UI, DnD)  -->
+<!-- МОДУЛЬ 4: ИГРА                                              -->
 <!-- ============================================================ -->
 <script>
     const Game = (function(gen, ui, dnd) {
@@ -562,7 +608,8 @@
                 ui.setScore(score);
                 ui.setMessage('<span class="feedback-success">Верно!</span>');
             } else {
-                ui.setMessage(`<span class="feedback-error">Неверно. Правильный: <strong>${currentTask.correctInterval}</strong></span>`);
+                // Оборачиваем правильный ответ в span с nowrap
+                ui.setMessage(`<span class="feedback-error">Неверно. Правильный: <span class="nowrap-interval"><strong>${currentTask.correctInterval}</strong></span></span>`);
             }
         }
 
