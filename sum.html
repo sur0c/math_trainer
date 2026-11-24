@@ -5,222 +5,117 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Перетаскиваемые квадраты с ручной сортировкой</title>
     <style>
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        * { -webkit-tap-highlight-color: transparent; }
         html, body {
-            margin: 0;
-            padding: 0;
-            background-color: #f0f0f0;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-            height: 100%;
-            /* Отключаем прокрутку/зум при перетаскивании на мобильных */
-            touch-action: none;
+            margin: 0; padding: 0; background-color: #f0f0f0;
+            font-family: Arial, sans-serif; overflow: hidden;
+            height: 100%; touch-action: none;
         }
+        .container { position: relative; width: 100%; height: 100%; }
 
-        .container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Обёртка для блока «кнопка + зона + результат» — центрируется на экране */
-        .stage {
+        /* Верхняя панель с исходными квадратами */
+        .tray {
             position: absolute;
-            top: 50%;
+            top: 10px;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateX(-50%);
             display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-            width: max-content;
-            max-width: calc(100vw - 20px);
-            pointer-events: none; /* пропускаем клики сквозь обёртку */
-        }
-
-        .stage > * {
-            pointer-events: auto;
-        }
-
-        /* Кнопка — слева от зоны (по левому краю). На мобильных станет над зоной */
-        .calc-row {
-            display: flex;
-            justify-content: flex-start;
-            padding-left: 0;
-        }
-
-        .calc-button {
-            background-color: #b0b0b0;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            transition: background-color 0.2s;
-            white-space: nowrap;
-        }
-
-        .calc-button:hover {
-            background-color: #999;
-        }
-
-        .calc-button:active {
-            background-color: #808080;
-        }
-
-        /* Зона */
-        .drop-zone {
-            min-width: 600px;
-            width: max-content;
-            max-width: 100%;
-            height: 200px;
-            border: 2px dashed #999;
-            border-radius: 12px;
-            background-color: rgba(255, 255, 255, 0.4);
-            display: flex;
-            align-items: center;
+            flex-wrap: wrap;
             justify-content: center;
-            gap: 10px;
-            padding: 20px;
-            box-sizing: border-box;
+            gap: 6px;
+            max-width: calc(100vw - 20px);
+            z-index: 100;
+            pointer-events: none;
+        }
+        .tray > * { pointer-events: auto; }
+
+        .stage {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: stretch;
+            gap: 12px; width: max-content; max-width: calc(100vw - 20px);
+            pointer-events: none;
+        }
+        .stage > * { pointer-events: auto; }
+        .calc-row { display: flex; justify-content: flex-start; padding-left: 0; }
+        .calc-button {
+            background-color: #b0b0b0; color: white; border: none;
+            border-radius: 8px; padding: 10px 20px; font-size: 16px;
+            font-weight: bold; font-family: Arial, sans-serif; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background-color 0.2s; white-space: nowrap;
+        }
+        .calc-button:hover { background-color: #999; }
+        .calc-button:active { background-color: #808080; }
+        .drop-zone {
+            min-width: 600px; width: max-content; max-width: 100%;
+            height: 200px; border: 2px dashed #999; border-radius: 12px;
+            background-color: rgba(255,255,255,0.4);
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; padding: 20px; box-sizing: border-box;
             transition: border-color 0.2s, background-color 0.2s;
         }
-
         .drop-zone.active {
             border-color: #4a90e2;
-            background-color: rgba(74, 144, 226, 0.1);
+            background-color: rgba(74,144,226,0.1);
         }
-
-        .drop-zone .placeholder {
-            color: #999;
-            font-size: 14px;
-            user-select: none;
-        }
-
-        /* Результат под зоной */
+        .drop-zone .placeholder { color: #999; font-size: 14px; user-select: none; }
         .calc-result {
-            font-size: 28px;
-            font-weight: bold;
-            color: #333;
-            font-family: Arial, sans-serif;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            min-height: 34px;
-            text-align: center;
+            font-size: 28px; font-weight: bold; color: #333;
+            font-family: Arial, sans-serif; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+            min-height: 34px; text-align: center;
         }
 
-        /* Квадраты */
+        /* Квадраты — теперь в потоке верхней панели, пока не взяты */
         .square {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            background-color: white;
-            border: 1px solid black;
-            box-sizing: border-box;
-            cursor: grab;
-            user-select: none;
-            border-radius: 4px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: black;
-            font-size: 36px;
-            font-weight: bold;
+            width: 80px; height: 80px;
+            background-color: white; border: 1px solid black;
+            box-sizing: border-box; cursor: grab; user-select: none;
+            border-radius: 4px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: black; font-size: 36px; font-weight: bold;
             font-family: Arial, sans-serif;
+        }
+
+        /* Когда квадрат вытащен из панели — он абсолютный и «летает» */
+        .square.floating {
+            position: absolute;
+            z-index: 500;
         }
 
         .square.dragging {
-            cursor: grabbing;
-            z-index: 1000;
-            outline: 2px solid #4a90e2;
-            outline-offset: 2px;
+            cursor: grabbing; z-index: 1000;
+            outline: 2px solid #4a90e2; outline-offset: 2px;
         }
-
-        .square.docked {
-            position: static;
-            outline: none;
-        }
-
+        .square.docked { position: static; outline: none; }
         .drop-indicator {
-            width: 4px;
-            height: 80px;
-            background-color: #4a90e2;
-            border-radius: 2px;
-            flex-shrink: 0;
+            width: 4px; height: 80px; background-color: #4a90e2;
+            border-radius: 2px; flex-shrink: 0;
         }
-
-        /* ============ Мобильная адаптация ============ */
         @media (max-width: 700px) {
+            .tray { top: 6px; gap: 4px; }
+            .square { width: 56px; height: 56px; font-size: 26px; }
             .drop-zone {
-                min-width: 0;
-                width: 100%;
-                height: auto;
-                min-height: 130px;
-                flex-wrap: wrap;
-                gap: 8px;
-                padding: 12px;
-                align-content: center;
+                min-width: 0; width: 100%; height: auto; min-height: 130px;
+                flex-wrap: wrap; gap: 8px; padding: 12px; align-content: center;
             }
-
-            .stage {
-                width: calc(100vw - 20px);
-                max-width: calc(100vw - 20px);
-            }
-
-            .calc-row {
-                justify-content: center;
-            }
-
-            .calc-button {
-                font-size: 15px;
-                padding: 9px 16px;
-            }
-
-            .calc-result {
-                font-size: 20px;
-                min-height: 26px;
-                white-space: normal;
-            }
-
-            .square {
-                width: 56px;
-                height: 56px;
-                font-size: 26px;
-            }
-
-            .drop-indicator {
-                height: 56px;
-                width: 3px;
-            }
+            .stage { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
+            .calc-row { justify-content: center; }
+            .calc-button { font-size: 15px; padding: 9px 16px; }
+            .calc-result { font-size: 20px; min-height: 26px; white-space: normal; }
+            .drop-indicator { height: 56px; width: 3px; }
         }
-
         @media (max-width: 380px) {
-            .square {
-                width: 48px;
-                height: 48px;
-                font-size: 22px;
-            }
-            .drop-indicator {
-                height: 48px;
-            }
-            .drop-zone {
-                gap: 6px;
-                padding: 10px;
-            }
+            .square { width: 48px; height: 48px; font-size: 22px; }
+            .drop-indicator { height: 48px; }
+            .drop-zone { gap: 6px; padding: 10px; }
         }
     </style>
 </head>
 <body>
     <div class="container" id="container">
+        <div class="tray" id="tray"></div>
         <div class="stage">
             <div class="calc-row">
                 <button class="calc-button" id="calcButton">Посчитать</button>
@@ -234,6 +129,7 @@
 
     <script>
         const container = document.getElementById('container');
+        const tray = document.getElementById('tray');
         const dropZone = document.getElementById('dropZone');
         const placeholder = document.getElementById('placeholder');
         const calcButton = document.getElementById('calcButton');
@@ -241,21 +137,16 @@
 
         let dropIndicator = null;
 
-        const labels = ['1', '2', '3', '4', '5', '+', '−'];
+        const labels = ['1', '2', '3', '4', '5', '+', '−', '·', 'x', '<', '='];
 
+        // Создаём квадраты и сразу кладём их в верхнюю панель (tray)
         labels.forEach((label) => {
             const square = document.createElement('div');
             square.className = 'square';
             square.dataset.label = label;
             square.textContent = label;
-
-            const maxX = window.innerWidth - 100;
-            const maxY = window.innerHeight - 100;
-            square.style.left = Math.random() * maxX + 'px';
-            square.style.top = Math.random() * maxY + 'px';
-
             makeDraggable(square);
-            container.appendChild(square);
+            tray.appendChild(square);
         });
 
         calcButton.addEventListener('click', () => {
@@ -270,7 +161,7 @@
 
             try {
                 const { display, value } = evaluate(tokens);
-                calcResult.textContent = `${display} = ${value}`;
+                calcResult.textContent = value === undefined ? display : `${display} = ${value}`;
                 calcResult.style.color = '#333';
             } catch (err) {
                 calcResult.textContent = 'Ошибка в выражении';
@@ -278,17 +169,32 @@
             }
         });
 
+        // ===== Вычислитель =====
         function evaluate(tokens) {
-            const norm = tokens.map(t => t === '−' ? '-' : t);
+            const norm = tokens.map(t => {
+                if (t === '−') return '-';
+                if (t === '·') return '*';
+                return t;
+            });
 
+            // 1. Склейка цифр + неявное умножение числа и x
             const merged = [];
             for (const t of norm) {
                 const isDigit = /^\d+$/.test(t);
+                const isX = (t === 'x');
                 const prev = merged[merged.length - 1];
                 const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
+                const prevIsX = (prev === 'x');
 
                 if (isDigit && prevIsDigit) {
                     merged[merged.length - 1] = prev + t;
+                } else if (isDigit && prevIsX) {
+                    merged[merged.length - 1] = t + '*x';
+                } else if (isX && prevIsDigit) {
+                    merged[merged.length - 1] = prev + '*x';
+                } else if (isX && prevIsX) {
+                    merged.push('*');
+                    merged.push(t);
                 } else {
                     merged.push(t);
                 }
@@ -296,41 +202,189 @@
 
             if (merged.length === 0) throw new Error('empty');
 
-            let result = null;
-            let op = '+';
-            let i = 0;
-
-            if (merged[0] === '-') {
-                op = '-';
-                i = 1;
-            }
-
-            for (; i < merged.length; i++) {
-                const t = merged[i];
-                if (t === '+' || t === '-') {
-                    op = t;
-                } else if (/^\d+$/.test(t)) {
-                    const num = parseInt(t, 10);
-                    if (result === null) {
-                        result = (op === '-') ? -num : num;
-                    } else {
-                        result = (op === '+') ? result + num : result - num;
+            // Разворачиваем "5*x" обратно в токены ['5','*','x']
+            const flat = [];
+            for (const t of merged) {
+                if (typeof t === 'string' && t.includes('*')) {
+                    const parts = t.split('*');
+                    for (let k = 0; k < parts.length; k++) {
+                        if (k > 0) flat.push('*');
+                        flat.push(parts[k]);
                     }
-                    op = '+';
                 } else {
-                    throw new Error('bad token');
+                    flat.push(t);
                 }
             }
-            if (result === null) throw new Error('no numbers');
 
-            const display = merged.reduce((acc, t, idx) => {
-                if (idx === 0) return t;
-                if (t === '+' || t === '-') return acc + ' ' + t;
-                return acc + ' ' + t;
-            }, '');
+            const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
+            const hasX = flat.includes('x');
 
-            return { display, value: result };
+            // 2. Равенство: левая и правая части
+            const eqIndex = flat.indexOf('=');
+            if (eqIndex !== -1) {
+                if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
+                const left = flat.slice(0, eqIndex);
+                const right = flat.slice(eqIndex + 1);
+                if (left.length === 0 || right.length === 0) throw new Error('bad =');
+
+                if (!hasX) {
+                    const leftVal = evalArithmetic(left);
+                    const rightVal = evalArithmetic(right);
+                    return { display: pretty, value: (leftVal === rightVal) ? 'верно' : 'неверно' };
+                }
+
+                const { a, b } = toLinear(left, right);
+                return { display: pretty, value: solveEquation(a, b) };
+            }
+
+            // 3. Неравенство с x
+            const cmpIndex = flat.indexOf('<');
+            if (cmpIndex !== -1) {
+                if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
+                const left = flat.slice(0, cmpIndex);
+                const right = flat.slice(cmpIndex + 1);
+                if (left.length === 0 || right.length === 0) throw new Error('bad <');
+
+                if (!hasX) {
+                    const leftVal = evalArithmetic(left);
+                    const rightVal = evalArithmetic(right);
+                    return { display: pretty, value: (leftVal < rightVal) ? 'верно' : 'неверно' };
+                }
+
+                const { a, b } = toLinear(left, right);
+                return { display: pretty, value: solveInequality(a, b) };
+            }
+
+            // 4. Без '=' и '<'
+            if (hasX) {
+                const { a, b } = toLinear(flat, []);
+                return { display: pretty, value: solveEquation(a, b) };
+            }
+
+            const value = evalArithmetic(flat);
+            return { display: pretty, value };
         }
+
+        function toLinear(leftTokens, rightTokens) {
+            const l = linearCoefs(leftTokens);
+            const r = linearCoefs(rightTokens);
+            return { a: l.a - r.a, b: l.b - r.b };
+        }
+
+        function linearCoefs(tokens) {
+            let i = 0;
+            let sign = 1;
+            const terms = [];
+
+            while (i < tokens.length && tokens[i] === '-') { sign *= -1; i++; }
+            if (i >= tokens.length) return { a: 0, b: 0 };
+            terms.push(parseLinearTerm(tokens, i, sign));
+            i = terms[terms.length - 1].next;
+
+            while (i < tokens.length) {
+                const op = tokens[i];
+                if (op !== '+' && op !== '-') throw new Error('bad op');
+                i++;
+                let s = 1;
+                while (i < tokens.length && tokens[i] === '-') { s *= -1; i++; }
+                const opSign = (op === '-') ? -1 : 1;
+                const term = parseLinearTerm(tokens, i, s * opSign);
+                terms.push(term);
+                i = term.next;
+            }
+
+            let a = 0, b = 0;
+            for (const t of terms) { a += t.a; b += t.b; }
+            return { a, b };
+        }
+
+        function parseLinearTerm(tokens, start, sign) {
+            let i = start;
+            let coef = 1;
+            let xCount = 0;
+            let hasNumber = false;
+
+            while (i < tokens.length) {
+                const t = tokens[i];
+                if (/^\d+$/.test(t)) {
+                    coef *= parseInt(t, 10);
+                    hasNumber = true;
+                    i++;
+                } else if (t === 'x') {
+                    xCount++;
+                    i++;
+                } else {
+                    break;
+                }
+                if (i < tokens.length && tokens[i] === '*') { i++; continue; }
+                else break;
+            }
+
+            if (!hasNumber && xCount === 0) throw new Error('bad term');
+            if (xCount > 1) throw new Error('x^2 не поддерживается');
+
+            if (xCount === 1) return { a: coef * sign, b: 0, next: i };
+            return { a: 0, b: coef * sign, next: i };
+        }
+
+        function solveEquation(a, b) {
+            if (a === 0) {
+                if (b === 0) return 'x — любое';
+                return 'нет решений';
+            }
+            return `x = ${formatNumber(-b / a)}`;
+        }
+
+        function solveInequality(a, b) {
+            if (a === 0) return b < 0 ? 'верно при любом x' : 'нет решений';
+            const bound = -b / a;
+            const op = a > 0 ? '<' : '>';
+            return `x ${op} ${formatNumber(bound)}`;
+        }
+
+        function formatNumber(n) {
+            if (Number.isInteger(n)) return String(n);
+            return String(parseFloat(n.toFixed(4)));
+        }
+
+        function evalArithmetic(tokens) {
+            if (tokens.length === 0) throw new Error('empty');
+
+            const terms = [];
+            let i = 0;
+            let sign = 1;
+
+            while (i < tokens.length && tokens[i] === '-') { sign *= -1; i++; }
+            if (i >= tokens.length || !/^\d+$/.test(tokens[i])) throw new Error('no number');
+            let current = sign * parseInt(tokens[i], 10);
+            i++;
+
+            while (i < tokens.length) {
+                const op = tokens[i];
+                if (op !== '+' && op !== '-' && op !== '*') throw new Error('bad op');
+                i++;
+
+                let s = 1;
+                while (i < tokens.length && tokens[i] === '-') { s *= -1; i++; }
+                if (i >= tokens.length || !/^\d+$/.test(tokens[i])) throw new Error('no number');
+                const num = s * parseInt(tokens[i], 10);
+                i++;
+
+                if (op === '*') current = current * num;
+                else { terms.push(current); terms.push(op); current = num; }
+            }
+            terms.push(current);
+
+            let result = terms[0];
+            for (let j = 1; j < terms.length; j += 2) {
+                const op = terms[j];
+                const num = terms[j + 1];
+                result = (op === '+') ? result + num : result - num;
+            }
+            return result;
+        }
+
+        // ===== Перетаскивание =====
 
         function isOverDropZone(el) {
             const rect = el.getBoundingClientRect();
@@ -361,11 +415,8 @@
                 dropIndicator = document.createElement('div');
                 dropIndicator.className = 'drop-indicator';
             }
-            if (beforeEl) {
-                dropZone.insertBefore(dropIndicator, beforeEl);
-            } else {
-                dropZone.appendChild(dropIndicator);
-            }
+            if (beforeEl) dropZone.insertBefore(dropIndicator, beforeEl);
+            else dropZone.appendChild(dropIndicator);
         }
 
         function hideIndicator() {
@@ -374,24 +425,36 @@
             }
         }
 
+        // Превращаем элемент в «летающий» (абсолютный) — используется при взятии
+        function makeFloating(el) {
+            const rect = el.getBoundingClientRect();
+            el.classList.add('floating');
+            el.style.left = rect.left + 'px';
+            el.style.top = rect.top + 'px';
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            container.appendChild(el);
+            return rect;
+        }
+
         function dockSquare(el, cursorX) {
             const rect = el.getBoundingClientRect();
             const insertBefore = getInsertBefore(cursorX);
 
             el.classList.add('docked');
             el.classList.remove('dragging');
+            el.classList.remove('floating');
             el.style.left = '';
             el.style.top = '';
+            el.style.width = '';
+            el.style.height = '';
             el.style.position = '';
             el.style.cursor = 'grab';
 
             hideIndicator();
 
-            if (insertBefore) {
-                dropZone.insertBefore(el, insertBefore);
-            } else {
-                dropZone.appendChild(el);
-            }
+            if (insertBefore) dropZone.insertBefore(el, insertBefore);
+            else dropZone.appendChild(el);
 
             updateDockState();
 
@@ -412,40 +475,28 @@
             }
         }
 
-        function detachFromDock(el) {
-            if (!el.classList.contains('docked')) return null;
-
-            const rect = el.getBoundingClientRect();
-
-            el.classList.remove('docked');
-            el.style.position = 'absolute';
-            el.style.left = rect.left + 'px';
-            el.style.top = rect.top + 'px';
-            el.style.transform = '';
-            el.style.transition = 'none';
-            container.appendChild(el);
-
-            updateDockState();
-
-            requestAnimationFrame(() => {
-                el.style.transition = '';
-            });
-
-            return rect;
-        }
-
         function makeDraggable(element) {
-            let offsetX = 0;
-            let offsetY = 0;
-            let isDragging = false;
+            let offsetX = 0, offsetY = 0, isDragging = false;
 
             element.addEventListener('mousedown', (e) => {
+                // Если квадрат уже в доке — сначала вынимаем (с сохранением позиции)
                 let rect;
-
                 if (element.classList.contains('docked')) {
-                    rect = detachFromDock(element);
+                    // Запоминаем позицию, выносим из дока в контейнер
+                    const r = element.getBoundingClientRect();
+                    element.classList.remove('docked');
+                    container.appendChild(element);
+                    element.classList.add('floating');
+                    element.style.left = r.left + 'px';
+                    element.style.top = r.top + 'px';
+                    rect = r;
+                    updateDockState();
                 } else {
+                    // Из верхней панели — делаем летающим на текущем месте
                     rect = element.getBoundingClientRect();
+                    if (!element.classList.contains('floating')) {
+                        makeFloating(element);
+                    }
                 }
 
                 isDragging = true;
@@ -491,16 +542,26 @@
                 if (isOverDropZone(element)) {
                     dockSquare(element, e.clientX);
                 }
+                // Иначе остаётся «летающим» в контейнере
             });
 
             // ===== Touch =====
             element.addEventListener('touchstart', (e) => {
                 let rect;
-
                 if (element.classList.contains('docked')) {
-                    rect = detachFromDock(element);
+                    const r = element.getBoundingClientRect();
+                    element.classList.remove('docked');
+                    container.appendChild(element);
+                    element.classList.add('floating');
+                    element.style.left = r.left + 'px';
+                    element.style.top = r.top + 'px';
+                    rect = r;
+                    updateDockState();
                 } else {
                     rect = element.getBoundingClientRect();
+                    if (!element.classList.contains('floating')) {
+                        makeFloating(element);
+                    }
                 }
 
                 isDragging = true;
