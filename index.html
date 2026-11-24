@@ -8,17 +8,17 @@
         body {
             font-family: Arial, sans-serif;
             display: flex;
-            flex-direction: column; /* Изменено, чтобы ссылка была внизу */
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
-            background-color: #f0f0f0;
             
-            /* Если хочешь картинку и здесь, раскомментируй и поменяй путь */
-            /* background-image: url('bg.jpg'); */
+            /* ТВОЯ КАРТИНКА */
+            background-image: url('bg.webp'); 
+            background-color: #f0f0f0; /* Запасной цвет */
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -34,7 +34,7 @@
             max-width: 600px;
             width: 100%;
             backdrop-filter: blur(6px);
-            margin-top: auto; /* Прижимает карточку к центру */
+            margin-top: auto;
             margin-bottom: auto;
         }
         
@@ -85,22 +85,21 @@
             transform: scale(0.98);
         }
 
-        /* Стили для ссылки на GitHub */
         .github-link {
             margin-top: 20px;
             margin-bottom: 20px;
             font-size: 14px;
-            color: #999; /* Бледный цвет */
+            color: #999;
             text-decoration: none;
             transition: color 0.2s;
+            text-shadow: 0 1px 3px rgba(255,255,255,0.8); /* Чтобы было видно на фоне */
         }
 
         .github-link:hover {
-            color: #666; /* Чуть темнее при наведении */
+            color: #666;
             text-decoration: underline;
         }
 
-        /* Адаптация под телефоны */
         @media (max-width: 500px) {
             .landing-card {
                 padding: 30px 20px;
@@ -127,11 +126,9 @@
         </ul>
         
         <br>
-        <!-- ССЫЛКА НА ТРЕНАЖЁР -->
         <a href="trainer.html" class="start-btn">Начать тренировку 🚀</a>
     </div>
 
-    <!-- Ссылка на GitHub -->
     <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
 
 </body>
