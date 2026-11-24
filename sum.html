@@ -18,7 +18,6 @@
             display: flex; flex-wrap: wrap; justify-content: center;
             gap: 6px; max-width: calc(100vw - 20px);
             z-index: 100; pointer-events: none;
-            transition: top 0.15s ease;
         }
         .tray > * { pointer-events: auto; }
         .stage {
@@ -28,8 +27,8 @@
             transform: translate(-50%, -50%);
             display: flex; flex-direction: column; align-items: stretch;
             gap: 12px; width: max-content; max-width: calc(100vw - 20px);
+            box-sizing: border-box;
             pointer-events: none;
-            transition: top 0.15s ease;
         }
         .stage > * { pointer-events: auto; }
         .controls {
@@ -49,7 +48,8 @@
         .calc-button.secondary:active { background-color: #b0b0b0; }
         .drop-zone {
             min-width: 600px; width: max-content; max-width: 100%;
-            height: 200px; border: 2px dashed #999; border-radius: 12px;
+            height: 200px; max-height: 40vh; overflow-y: auto;
+            border: 2px dashed #999; border-radius: 12px;
             background-color: rgba(255,255,255,0.4);
             display: flex; align-items: center; justify-content: center;
             gap: 10px; padding: 20px; box-sizing: border-box;
@@ -122,6 +122,7 @@
             .square { width: 56px; height: 56px; font-size: 26px; }
             .drop-zone {
                 min-width: 0; width: 100%; height: auto; min-height: 130px;
+                max-height: 45vh;
                 flex-wrap: wrap; gap: 8px; padding: 12px; align-content: center;
             }
             .stage { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
@@ -134,7 +135,7 @@
         @media (max-width: 380px) {
             .square { width: 48px; height: 48px; font-size: 22px; }
             .drop-indicator { height: 48px; }
-            .drop-zone { gap: 6px; padding: 10px; }
+            .drop-zone { gap: 6px; padding: 10px; max-height: 50vh; }
         }
     </style>
 </head>
@@ -158,7 +159,7 @@
     </div>
 
     <script>
-        const VERSION = '1.5';
+        const VERSION = '1.7';
         document.getElementById('version').textContent = 'версия ' + VERSION;
 
         const container = document.getElementById('container');
@@ -177,6 +178,7 @@
         let rafPending = false;
         let lastPointer = { x: 0, y: 0 };
         let kbdEl = null;
+        let layoutScheduled = false;
 
         const labels = ['1', '2', '3', '4', '5', '+', '−', '·', '/', 'x', '<', '='];
 
@@ -209,46 +211,61 @@
         }
 
         // ===== Позиционирование =====
-        // Порядок строго:
-        //   1. Трей возвращаем в исходное положение (top из CSS).
-        //   2. Если трей пересекается с кнопкой «На главную» — опускаем трей под кнопку.
-        //   3. Stage сбрасываем к центрированию.
-        //   4. Если stage пересекается с (уже актуальным) треем — опускаем stage под трей.
-        function updateLayout() {
+        // Один reflow-цикл:
+        //   1. Сброс трея к CSS-положению, одно чтение trayRect + trayHeight.
+        //   2. Если трей пересекается с кнопкой «На главную» — опускаем трей
+        //      и считаем новый bottom арифметически (высота трея не меняется от top).
+        //   3. Stage к центрированию, одно чтение stageRect + stageHeight.
+        //   4. Если stage пересекается с треем по вертикали — ставим stage под трей.
+        function updateLayoutNow() {
             // --- Шаг 1: трей в исходное положение ---
             tray.style.top = '';
-            void tray.offsetHeight; // reflow
-            let trayRect = tray.getBoundingClientRect();
+            // Один reflow: читаем и высоту, и rect
+            const trayHeight = tray.offsetHeight;
+            const trayRect = tray.getBoundingClientRect();
 
             // --- Шаг 2: трей vs кнопка «На главную» ---
             const homeRect = homeButton.getBoundingClientRect();
+            let trayBottom = trayRect.bottom;
             if (rectsOverlap(trayRect, homeRect)) {
                 const gap = 8;
-                tray.style.top = (homeRect.bottom + gap) + 'px';
-                void tray.offsetHeight; // reflow
-                trayRect = tray.getBoundingClientRect();
+                const newTop = homeRect.bottom + gap;
+                tray.style.top = newTop + 'px';
+                trayBottom = newTop + trayHeight; // без повторного чтения
             }
 
             // --- Шаг 3: stage к центрированию ---
             stage.style.top = '50%';
             stage.style.transform = 'translate(-50%, -50%)';
-            void stage.offsetHeight; // reflow
-            let stageRect = stage.getBoundingClientRect();
+            // Один reflow: читаем высоту и rect
+            const stageRect = stage.getBoundingClientRect();
 
-            // --- Шаг 4: stage vs (актуальный) трей ---
-            if (rectsOverlap(stageRect, trayRect)) {
+            // --- Шаг 4: stage vs трей (только по вертикали) ---
+            const overlapY = !(stageRect.bottom < trayRect.top || stageRect.top > trayBottom);
+            if (overlapY) {
                 const gap = 12;
-                const maxTop = window.innerHeight - stage.offsetHeight - 10;
-                let top = trayRect.bottom + gap;
-                if (top > maxTop) top = Math.max(gap, maxTop);
-                stage.style.top = top + 'px';
+                // Всегда ставим под трей. Если не влезает по высоте — обрежется снизу,
+                // но не перекроет трей. Высоту stage ограничивает max-height у .drop-zone.
+                stage.style.top = (trayBottom + gap) + 'px';
                 stage.style.transform = 'translateX(-50%)';
             }
         }
 
+        // Планируем пересчёт на следующий кадр — схлопывает серию вызовов
+        function updateLayout() {
+            if (layoutScheduled) return;
+            layoutScheduled = true;
+            requestAnimationFrame(() => {
+                layoutScheduled = false;
+                updateLayoutNow();
+            });
+        }
+
+        // Первичный вызов — синхронно, чтобы не мигало при загрузке
+        updateLayoutNow();
+
         window.addEventListener('resize', updateLayout);
         window.addEventListener('load', updateLayout);
-        updateLayout();
 
         // ===== Кнопки =====
         calcButton.addEventListener('click', () => {
@@ -648,6 +665,7 @@
                 dockSquare(el, x);
             }
             activeDrag = null;
+            updateLayout();
         }
 
         function dockSquare(el, cursorX) {
@@ -729,6 +747,7 @@
                     dropZone.classList.remove('active');
                     hideIndicator();
                     activeDrag = null;
+                    updateLayout();
                     e.preventDefault();
                     return;
                 }
@@ -834,7 +853,7 @@
         });
 
         updateDockState();
-        updateLayout();
+        updateLayoutNow();
     </script>
 </body>
 </html>
