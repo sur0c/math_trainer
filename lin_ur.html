@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Линейные уравнения</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 10px 130px 10px;
+            box-sizing: border-box;
+
+            /* ТВОЙ ФОН */
+            background-image: url('bg.webp');
+            background-color: #f0f0f0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.92);
+            padding: 30px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            backdrop-filter: blur(4px);
+        }
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-top: 0;
+        }
+        .equation {
+            font-size: 28px;
+            color: #007bff;
+            margin: 20px 0;
+            font-weight: bold;
+            word-break: break-word;
+        }
+        .hint {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        input {
+            font-size: 18px;
+            padding: 10px 12px;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            width: 100px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            font-size: 42px;
+            margin-top: 15px;
+            min-height: 50px;
+        }
+        .new-btn {
+            background: #6c757d;
+        }
+        .new-btn:hover {
+            background: #5a6268;
+        }
+        
+        /* Кнопка "На главную" */
+        .back-btn {
+            background: #17a2b8;
+            margin-bottom: 15px;
+            font-size: 14px;
+            padding: 8px 15px;
+            width: auto;
+            display: inline-block;
+        }
+        .back-btn:hover {
+            background: #138496;
+        }
+
+        /* Панель истории */
+        #history {
+            position: fixed;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 95vw;
+            z-index: 100;
+        }
+        .history-square {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #000;
+            box-sizing: border-box;
+        }
+        .history-square.correct  { background-color: #28a745; }
+        .history-square.wrong    { background-color: #dc3545; }
+        .history-square.skipped  { background-color: #ffc107; }
+
+        /* Ссылка на GitHub */
+        .github-link {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #999;
+            text-decoration: none;
+            transition: color 0.2s;
+            z-index: 100;
+            text-shadow: 0 1px 3px rgba(255,255,255,0.8);
+        }
+
+        .github-link:hover {
+            color: #666;
+            text-decoration: underline;
+        }
+
+        /* --- МЕДИА-ЗАПРОС ДЛЯ ПК --- */
+        @media (min-width: 600px) {
+            .btn-group {
+                flex-direction: row;
+                justify-content: center;
+            }
+            button {
+                width: auto;
+            }
+            .equation {
+                font-size: 32px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            #history {
+                bottom: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">← На главную</a>
+        <h1>Реши линейное уравнение</h1>
+        <div class="equation" id="equation">...</div>
+        <div class="hint">Введи значение <b>x</b></div>
+        <input type="number" step="any" id="answer" placeholder="?" autocomplete="off">
+        
+        <div class="btn-group">
+            <button onclick="checkAnswer()">Проверить ответ</button>
+            <button class="new-btn" onclick="skipEquation()">Новое уравнение</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <div id="history"></div>
+
+    <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
+
+    <script>
+        let currentAnswer = 0;
+        const historyEl = document.getElementById('history');
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Функция форматирования для красивой записи уравнения
+        function formatTerm(coef, variable, isFirst) {
+            if (coef === 0) return "";
+            let sign = "";
+            let absCoef = Math.abs(coef);
+            let coefStr = (absCoef === 1 && variable) ? "" : absCoef;
+            
+            if (isFirst) {
+                sign = coef < 0 ? "-" : "";
+            } else {
+                sign = coef < 0 ? " - " : " + ";
+            }
+            return sign + coefStr + variable;
+        }
+
+        function generateEquation() {
+            let type = Math.random() < 0.5 ? 1 : 2; // 1: ax + b = c, 2: ax + b = cx + d
+            let a, b, c, d, x;
+
+            if (type === 1) {
+                // ax + b = c
+                a = randInt(1, 10) * (Math.random() < 0.3 ? -1 : 1); // иногда с минусом
+                if (a === 0) a = 5; 
+                x = randInt(-20, 20);
+                b = randInt(-20, 20);
+                c = a * x + b;
+
+                let eq = formatTerm(a, "x", true) + formatTerm(b, "", false) + " = " + c;
+                document.getElementById('equation').textContent = eq;
+                currentAnswer = x;
+
+            } else {
+                // ax + b = cx + d
+                a = randInt(2, 10);
+                c = randInt(1, 9); // c < a, чтобы (a-c) != 0
+                if (a === c) c = a - 1;
+                
+                // Чтобы корень был целым, подбираем x
+                x = randInt(-10, 10);
+                
+                // d = (a-c)*x + b => (a-c)*x + b - d = 0
+                // Пусть b и d будут случайными, но вычислим d так, чтобы x подошел
+                b = randInt(-20, 20);
+                d = (a - c) * x + b;
+
+                let eq = formatTerm(a, "x", true) + formatTerm(b, "", false) + " = " + formatTerm(c, "x", true) + formatTerm(d, "", false);
+                document.getElementById('equation').textContent = eq;
+                currentAnswer = x;
+            }
+
+            document.getElementById('result').textContent = '';
+            document.getElementById('answer').value = '';
+        }
+
+        function addToHistory(type) {
+            const square = document.createElement('div');
+            square.className = 'history-square ' + type;
+            historyEl.appendChild(square);
+            while (historyEl.children.length > 20) {
+                historyEl.removeChild(historyEl.firstChild);
+            }
+        }
+
+        function checkAnswer() {
+            const input = document.getElementById('answer');
+            const result = document.getElementById('result');
+            const value = input.value.trim();
+            
+            if (value === '') { result.textContent = '🤔'; return; }
+            
+            const userAnswer = Number(value);
+            
+            if (Math.abs(userAnswer - currentAnswer) < 1e-9) {
+                result.textContent = '😄';
+                addToHistory('correct');
+                setTimeout(generateEquation, 1200);
+            } else {
+                result.textContent = '😢';
+                addToHistory('wrong');
+            }
+        }
+
+        function skipEquation() {
+            addToHistory('skipped');
+            generateEquation();
+        }
+
+        document.getElementById('answer').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') checkAnswer();
+        });
+
+        // Первое уравнение при загрузке
+        generateEquation();
+    </script>
+</body>
+</html>
