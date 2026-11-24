@@ -16,9 +16,9 @@
             padding: 20px;
             box-sizing: border-box;
             
-            /* ТВОЯ КАРТИНКА */
+            /* ТВОЙ ФОН */
             background-image: url('bg.webp'); 
-            background-color: #f0f0f0; /* Запасной цвет */
+            background-color: #f0f0f0;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -64,17 +64,29 @@
             margin-bottom: 10px;
         }
         
+        /* Группа кнопок */
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
         .start-btn {
-            display: inline-block;
+            display: block;
+            width: 100%;
+            max-width: 350px;
             background: #007bff;
             color: white;
             text-decoration: none;
-            padding: 15px 40px;
+            padding: 15px 20px;
             border-radius: 8px;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             transition: background 0.2s, transform 0.1s;
             box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+            box-sizing: border-box;
         }
         
         .start-btn:hover {
@@ -85,6 +97,16 @@
             transform: scale(0.98);
         }
 
+        /* Стиль для второй кнопки (линейные уравнения) */
+        .start-btn.secondary {
+            background: #28a745; /* Зелёный цвет, чтобы отличать от квадратных */
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        .start-btn.secondary:hover {
+            background: #218838;
+        }
+
         .github-link {
             margin-top: 20px;
             margin-bottom: 20px;
@@ -92,7 +114,7 @@
             color: #999;
             text-decoration: none;
             transition: color 0.2s;
-            text-shadow: 0 1px 3px rgba(255,255,255,0.8); /* Чтобы было видно на фоне */
+            text-shadow: 0 1px 3px rgba(255,255,255,0.8);
         }
 
         .github-link:hover {
@@ -110,23 +132,32 @@
             p {
                 font-size: 16px;
             }
+            .start-btn {
+                font-size: 16px;
+                padding: 12px 15px;
+            }
         }
     </style>
 </head>
 <body>
 
     <div class="landing-card">
-        <h1>Тренажёр квадратных уравнений</h1>
-        <p>Проверь свои навыки решения уравнений! Вводи наименьший корень и зарабатывай зелёные квадратики.</p>
+        <h1>Тренажёр уравнений</h1>
+        <p>Выбери тип уравнений для тренировки. Решай, вводи ответ и собирай зелёные квадратики!</p>
         
         <ul class="features">
             <li>📈 Автоматическая генерация уравнений</li>
-            <li>🧠 Только целые корни (никаких сложных дробей)</li>
+            <li>🧠 Только целые корни</li>
             <li>🟩🟥🟨 Удобная история ответов</li>
         </ul>
         
-        <br>
-        <a href="trainer.html" class="start-btn">Начать тренировку 🚀</a>
+        <div class="buttons-container">
+            <!-- ССЫЛКА НА КВАДРАТНЫЕ УРАВНЕНИЯ -->
+            <a href="trainer.html" class="start-btn">Квадратные уравнения 🚀</a>
+            
+            <!-- ССЫЛКА НА ЛИНЕЙНЫЕ УРАВНЕНИЯ -->
+            <a href="lin_ur.html" class="start-btn secondary">Линейные уравнения ➡️</a>
+        </div>
     </div>
 
     <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
