@@ -114,7 +114,7 @@
         .home-button:hover { background-color: #999; }
         .home-button:active { background-color: #808080; }
         @media (max-width: 700px) {
-            .tray { top: 6px; gap: 4px; }
+            .tray { top: 52px; gap: 4px; } /* отступ от верхнего края под кнопку */
             .square { width: 56px; height: 56px; font-size: 26px; }
             .drop-zone {
                 min-width: 0; width: 100%; height: auto; min-height: 130px;
@@ -126,17 +126,12 @@
             .calc-result { font-size: 20px; min-height: 26px; }
             .drop-indicator { height: 56px; width: 3px; }
             .version { font-size: 11px; right: 6px; bottom: 6px; }
-            .home-button {
-                top: 6px;
-                left: 6px;
-                padding: 7px 11px;
-                font-size: 13px;
-            }
         }
         @media (max-width: 380px) {
             .square { width: 48px; height: 48px; font-size: 22px; }
             .drop-indicator { height: 48px; }
             .drop-zone { gap: 6px; padding: 10px; }
+            .tray { top: 48px; }
         }
     </style>
 </head>
