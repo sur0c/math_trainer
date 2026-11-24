@@ -67,7 +67,7 @@
             min-height: 34px; text-align: center;
         }
 
-        /* Квадраты — теперь в потоке верхней панели, пока не взяты */
+        /* Квадраты — в потоке верхней панели, пока не взяты */
         .square {
             width: 80px; height: 80px;
             background-color: white; border: 1px solid black;
@@ -78,7 +78,7 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Когда квадрат вытащен из панели — он абсолютный и «летает» */
+        /* Когда квадрат вытащен — он абсолютный и «летает» */
         .square.floating {
             position: absolute;
             z-index: 500;
@@ -169,39 +169,112 @@
             }
         });
 
+        // ===== Нормализация символов =====
+        // Приводим разные юникод-варианты к каноническим токенам.
+        function normalizeToken(t) {
+    if (t === '−' || t === '–' || t === '—' || t === '-') return '-';
+    if (t === '·' || t === '•' || t === '⋅' || t === '*' || t === '×') return '*';
+    if (t === 'x' || t === 'х' || t === '𝑥' || t === 'X') return 'x';
+    if (t === '<' || t === '＜' || t === '‹') return '<';
+    if (t === '=' || t === '＝') return '=';
+    return t;
+}
+
         // ===== Вычислитель =====
         function evaluate(tokens) {
-            const norm = tokens.map(t => {
-                if (t === '−') return '-';
-                if (t === '·') return '*';
-                return t;
-            });
+    console.log('RAW TOKENS:', tokens.map(t => t + ' (U+' + t.charCodeAt(0).toString(16).toUpperCase() + ')'));
 
-            // 1. Склейка цифр + неявное умножение числа и x
-            const merged = [];
-            for (const t of norm) {
-                const isDigit = /^\d+$/.test(t);
-                const isX = (t === 'x');
-                const prev = merged[merged.length - 1];
-                const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
-                const prevIsX = (prev === 'x');
+    const norm = tokens.map(normalizeToken);
+    console.log('NORMALIZED:', norm);
 
-                if (isDigit && prevIsDigit) {
-                    merged[merged.length - 1] = prev + t;
-                } else if (isDigit && prevIsX) {
-                    merged[merged.length - 1] = t + '*x';
-                } else if (isX && prevIsDigit) {
-                    merged[merged.length - 1] = prev + '*x';
-                } else if (isX && prevIsX) {
-                    merged.push('*');
-                    merged.push(t);
-                } else {
-                    merged.push(t);
-                }
+    // 1. Склейка цифр + неявное умножение числа и x
+    const merged = [];
+    for (const t of norm) {
+        const isDigit = /^\d+$/.test(t);
+        const isX = (t === 'x');
+        const prev = merged[merged.length - 1];
+        const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
+        const prevIsX = (prev === 'x');
+
+        if (isDigit && prevIsDigit) {
+            merged[merged.length - 1] = prev + t;
+        } else if (isDigit && prevIsX) {
+            merged[merged.length - 1] = t + '*x';
+        } else if (isX && prevIsDigit) {
+            merged[merged.length - 1] = prev + '*x';
+        } else if (isX && prevIsX) {
+            merged.push('*');
+            merged.push(t);
+        } else {
+            merged.push(t);
+        }
+    }
+
+    if (merged.length === 0) throw new Error('empty');
+
+    const flat = [];
+    for (const t of merged) {
+        if (typeof t === 'string' && t.includes('*')) {
+            const parts = t.split('*');
+            for (let k = 0; k < parts.length; k++) {
+                if (k > 0) flat.push('*');
+                flat.push(parts[k]);
             }
+        } else {
+            flat.push(t);
+        }
+    }
 
-            if (merged.length === 0) throw new Error('empty');
+    console.log('FLAT:', flat);
 
+    const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
+    const hasX = flat.includes('x');
+
+    // 2. Равенство
+    const eqIndex = flat.indexOf('=');
+    if (eqIndex !== -1) {
+        if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
+        const left = flat.slice(0, eqIndex);
+        const right = flat.slice(eqIndex + 1);
+        if (left.length === 0 || right.length === 0) throw new Error('bad =');
+
+        if (!hasX) {
+            const leftVal = evalArithmetic(left);
+            const rightVal = evalArithmetic(right);
+            return { display: pretty, value: (leftVal === rightVal) ? 'верно' : 'неверно' };
+        }
+
+        const { a, b } = toLinear(left, right);
+        return { display: pretty, value: solveEquation(a, b) };
+    }
+
+    // 3. Неравенство
+    const cmpIndex = flat.indexOf('<');
+    if (cmpIndex !== -1) {
+        if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
+        const left = flat.slice(0, cmpIndex);
+        const right = flat.slice(cmpIndex + 1);
+        if (left.length === 0 || right.length === 0) throw new Error('bad <');
+
+        if (!hasX) {
+            const leftVal = evalArithmetic(left);
+            const rightVal = evalArithmetic(right);
+            return { display: pretty, value: (leftVal < rightVal) ? 'верно' : 'неверно' };
+        }
+
+        const { a, b } = toLinear(left, right);
+        return { display: pretty, value: solveInequality(a, b) };
+    }
+
+    // 4. Без '=' и '<'
+    if (hasX) {
+        const { a, b } = toLinear(flat, []);
+        return { display: pretty, value: solveEquation(a, b) };
+    }
+
+    const value = evalArithmetic(flat);
+    return { display: pretty, value };
+}
             // Разворачиваем "5*x" обратно в токены ['5','*','x']
             const flat = [];
             for (const t of merged) {
@@ -219,7 +292,7 @@
             const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
             const hasX = flat.includes('x');
 
-            // 2. Равенство: левая и правая части
+            // 2. Равенство
             const eqIndex = flat.indexOf('=');
             if (eqIndex !== -1) {
                 if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
@@ -237,7 +310,7 @@
                 return { display: pretty, value: solveEquation(a, b) };
             }
 
-            // 3. Неравенство с x
+            // 3. Неравенство
             const cmpIndex = flat.indexOf('<');
             if (cmpIndex !== -1) {
                 if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
@@ -425,7 +498,7 @@
             }
         }
 
-        // Превращаем элемент в «летающий» (абсолютный) — используется при взятии
+        // Превращаем элемент в «летающий» (абсолютный), сохраняя позицию на экране
         function makeFloating(el) {
             const rect = el.getBoundingClientRect();
             el.classList.add('floating');
@@ -479,10 +552,9 @@
             let offsetX = 0, offsetY = 0, isDragging = false;
 
             element.addEventListener('mousedown', (e) => {
-                // Если квадрат уже в доке — сначала вынимаем (с сохранением позиции)
                 let rect;
                 if (element.classList.contains('docked')) {
-                    // Запоминаем позицию, выносим из дока в контейнер
+                    // Вынимаем из дока, сохраняя позицию
                     const r = element.getBoundingClientRect();
                     element.classList.remove('docked');
                     container.appendChild(element);
@@ -492,7 +564,6 @@
                     rect = r;
                     updateDockState();
                 } else {
-                    // Из верхней панели — делаем летающим на текущем месте
                     rect = element.getBoundingClientRect();
                     if (!element.classList.contains('floating')) {
                         makeFloating(element);
@@ -501,10 +572,8 @@
 
                 isDragging = true;
                 element.classList.add('dragging');
-
                 offsetX = e.clientX - rect.left;
                 offsetY = e.clientY - rect.top;
-
                 e.preventDefault();
             });
 
@@ -513,10 +582,8 @@
 
                 let newLeft = e.clientX - offsetX;
                 let newTop = e.clientY - offsetY;
-
                 const maxLeft = window.innerWidth - element.offsetWidth;
                 const maxTop = window.innerHeight - element.offsetHeight;
-
                 newLeft = Math.max(0, Math.min(newLeft, maxLeft));
                 newTop = Math.max(0, Math.min(newTop, maxTop));
 
@@ -542,7 +609,6 @@
                 if (isOverDropZone(element)) {
                     dockSquare(element, e.clientX);
                 }
-                // Иначе остаётся «летающим» в контейнере
             });
 
             // ===== Touch =====
@@ -566,30 +632,23 @@
 
                 isDragging = true;
                 element.classList.add('dragging');
-
                 const touch = e.touches[0];
                 offsetX = touch.clientX - rect.left;
                 offsetY = touch.clientY - rect.top;
-
                 e.preventDefault();
             }, { passive: false });
 
             document.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
-
                 const touch = e.touches[0];
                 let newLeft = touch.clientX - offsetX;
                 let newTop = touch.clientY - offsetY;
-
                 const maxLeft = window.innerWidth - element.offsetWidth;
                 const maxTop = window.innerHeight - element.offsetHeight;
-
                 newLeft = Math.max(0, Math.min(newLeft, maxLeft));
                 newTop = Math.max(0, Math.min(newTop, maxTop));
-
                 element.style.left = newLeft + 'px';
                 element.style.top = newTop + 'px';
-
                 if (isOverDropZone(element)) {
                     dropZone.classList.add('active');
                     showIndicator(getInsertBefore(touch.clientX));
@@ -597,7 +656,6 @@
                     dropZone.classList.remove('active');
                     hideIndicator();
                 }
-
                 e.preventDefault();
             }, { passive: false });
 
@@ -607,7 +665,6 @@
                 element.classList.remove('dragging');
                 dropZone.classList.remove('active');
                 hideIndicator();
-
                 if (isOverDropZone(element)) {
                     const touch = e.changedTouches[0];
                     dockSquare(element, touch.clientX);
