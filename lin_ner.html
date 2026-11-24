@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Собери промежуток — решение неравенств</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: linear-gradient(145deg, #f6f9fc 0%, #e6f0f5 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-container {
+            max-width: 980px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 48px;
+            box-shadow: 0 25px 40px -10px rgba(0, 30, 50, 0.3), 0 0 0 1px rgba(255,255,255,0.7) inset;
+            padding: 36px 30px 30px;
+            transition: 0.3s;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1a3e60;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        h1 span {
+            background: #1a3e60;
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-weight: 500;
+        }
+        .inequality-box {
+            background: #ffffffd9;
+            border-radius: 32px;
+            padding: 28px 20px;
+            margin-bottom: 28px;
+            box-shadow: 0 10px 20px -8px rgba(0, 20, 40, 0.2), 0 0 0 1px #ffffff inset, 0 0 0 1px #bdd3e6;
+            text-align: center;
+            font-size: 2.3rem;
+            font-weight: 700;
+            color: #0b2d46;
+            letter-spacing: 1px;
+            word-break: break-word;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        .answer-zone-label {
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #5b7a96;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .answer-zone {
+            min-height: 110px;
+            border: 2.5px dashed #a9c3d9;
+            border-radius: 28px;
+            background: #f4faffb3;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+            align-items: center;
+            padding: 18px;
+            margin-bottom: 28px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .answer-zone.drag-over {
+            background: #e3f1ff;
+            border-color: #1a78c2;
+        }
+        .answer-zone .placeholder {
+            color: #8aa6bd;
+            font-size: 1.15rem;
+            font-weight: 500;
+            user-select: none;
+            pointer-events: none;
+        }
+        .cards-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 28px;
+            min-height: 90px;
+        }
+        .card {
+            background: white;
+            border-radius: 22px;
+            padding: 12px 18px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #0b2d46;
+            box-shadow: 0 12px 18px -8px rgba(0, 30, 50, 0.25), 0 0 0 1px #cddfee inset, 0 0 0 1px #ffffff;
+            cursor: grab;
+            transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+            min-width: 115px;
+            text-align: center;
+            user-select: none;
+            flex: 0 1 auto;
+            letter-spacing: 0.4px;
+            border: 2px solid transparent;
+            touch-action: none;
+            position: relative;
+            white-space: nowrap;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 18px 22px -8px #1a3e6040, 0 0 0 1px #acc9e2 inset;
+            background: #f5fbff;
+        }
+        .card:active {
+            cursor: grabbing;
+        }
+        .card.dragging {
+            opacity: 0.35;
+        }
+        .card.placed {
+            background: #d4e9ff;
+            border: 2px solid #1a78c2;
+            box-shadow: 0 0 0 4px #a0c8f0, 0 12px 18px -8px #1a3e6060;
+            cursor: grab;
+        }
+        .card.correct-highlight {
+            background: #c8e6d0;
+            border: 2px solid #1d7a47;
+            box-shadow: 0 0 0 4px #a3d8b3;
+        }
+        .card.wrong-highlight {
+            background: #fad1d1;
+            border: 2px solid #b33b3b;
+            box-shadow: 0 0 0 4px #f0b6b6;
+        }
+        .card.disabled {
+            pointer-events: none;
+            opacity: 0.75;
+            cursor: default;
+        }
+        .card.ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.9;
+            transform: scale(1.05);
+            box-shadow: 0 25px 30px -10px #1a3e6080, 0 0 0 1px #acc9e2 inset;
+            margin: 0;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 6px;
+        }
+        button {
+            border: none;
+            background: #1a3e60;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 10px 18px -8px #0b2d46a0, 0 0 0 1px #ffffff60 inset;
+            letter-spacing: 0.3px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button:hover {
+            background: #21587e;
+            transform: scale(1.02);
+            box-shadow: 0 18px 25px -10px #0b2d46;
+        }
+        button.secondary {
+            background: #ffffff;
+            color: #1a3e60;
+            box-shadow: 0 10px 18px -8px #0b2d4640, 0 0 0 1px #bdd3e6 inset;
+        }
+        button.secondary:hover {
+            background: #edf5fb;
+        }
+        button:disabled {
+            opacity: 0.45;
+            pointer-events: none;
+            transform: none;
+        }
+        .message-area {
+            text-align: center;
+            margin-top: 22px;
+            min-height: 54px;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #1a3e60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .score-badge {
+            background: #ffffffd9;
+            padding: 9px 20px;
+            border-radius: 60px;
+            font-size: 1.2rem;
+            color: #1a3e60;
+            box-shadow: 0 5px 12px -5px #1a3e6030, 0 0 0 1px #cddfee inset;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .feedback-success {
+            color: #1d7a47;
+            background: #e2f3e6;
+            padding: 9px 24px;
+            border-radius: 60px;
+            box-shadow: 0 5px 10px -5px #1d7a4730;
+        }
+        .feedback-error {
+            color: #b33b3b;
+            background: #fce4e4;
+            padding: 9px 24px;
+            border-radius: 60px;
+            box-shadow: 0 5px 10px -5px #b33b3b30;
+        }
+        .reset-btn {
+            background: transparent;
+            color: #1a3e60;
+            box-shadow: 0 0 0 1.5px #bdd3e6 inset;
+            padding: 11px 22px;
+            font-size: 0.95rem;
+        }
+        .footer {
+            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            align-items: center;
+            font-size: 0.95rem;
+            color: #3f5e7a;
+            flex-wrap: wrap;
+        }
+        .interval-hint {
+            font-size: 0.88rem;
+            opacity: 0.75;
+            text-align: center;
+        }
+        @media (max-width: 700px) {
+            .inequality-box { font-size: 1.6rem; padding: 20px 14px; }
+            .card { font-size: 1.1rem; padding: 9px 12px; min-width: 85px; }
+            h1 { font-size: 1.5rem; }
+            .game-container { padding: 24px 16px 22px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <h1>
+        Собери промежуток
+        <span id="scoreDisplay">0</span>
+    </h1>
+
+    <div class="inequality-box" id="inequalityDisplay">2x + 3 > 7</div>
+
+    <div class="answer-zone-label">Поле ответа — перетащите сюда карточку</div>
+    <div class="answer-zone" id="answerZone">
+        <span class="placeholder" id="answerPlaceholder">Перетащите карточку сюда</span>
+    </div>
+
+    <div class="cards-area" id="cardsContainer"></div>
+
+    <div class="controls">
+        <button id="checkBtn">Проверить</button>
+        <button id="newTaskBtn" class="secondary">Новое задание</button>
+    </div>
+
+    <div class="message-area" id="messageArea"></div>
+
+    <div class="footer">
+        <div class="score-badge">Очки: <span id="scoreValue">0</span></div>
+        <button id="resetScoreBtn" class="reset-btn">Сбросить счёт</button>
+        <span class="interval-hint">Перетащите карточку в поле ответа, затем нажмите «Проверить»</span>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- Утилиты ----------
+        function formatInterval(left, right, leftInclusive, rightInclusive) {
+            const leftBracket = leftInclusive ? '[' : '(';
+            const rightBracket = rightInclusive ? ']' : ')';
+            const leftStr = (left === -Infinity) ? '-∞' : left;
+            const rightStr = (right === Infinity) ? '+∞' : right;
+            return `${leftBracket}${leftStr}, ${rightStr}${rightBracket}`;
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // ---------- Сборка пула дистракторов ----------
+        function buildDistractors(correctInterval, pool, trickyPool = []) {
+            const allUnique = [...new Set([...pool, ...trickyPool])].filter(s => s !== correctInterval);
+            shuffle(allUnique);
+
+            const trickyFiltered = trickyPool.filter(s => s !== correctInterval && !pool.includes(s));
+            shuffle(trickyFiltered);
+            const priorityTricky = trickyFiltered.slice(0, 2);
+
+            const remainingPool = allUnique.filter(s => !priorityTricky.includes(s));
+            const needed = 7 - priorityTricky.length;
+            const wrong = [...priorityTricky, ...remainingPool.slice(0, needed)];
+
+            return shuffle([correctInterval, ...wrong]);
+        }
+
+        // ---------- Генератор ЛЁГКИХ линейных неравенств ----------
+        // Вид: ax + b > c  (или <, ≥, ≤)
+        function generateEasyLinear() {
+            const a = Math.floor(Math.random() * 5) + 1;        // 1..5
+            const x0 = Math.floor(Math.random() * 11) - 5;     // -5..5
+            const b = Math.floor(Math.random() * 11) - 5;      // -5..5
+            const c = a * x0 + b;
+            const op = ['>', '<', '≥', '≤'][Math.floor(Math.random() * 4)];
+
+            let correctInterval;
+            if (op === '>') correctInterval = formatInterval(x0, Infinity, false, false);
+            else if (op === '<') correctInterval = formatInterval(-Infinity, x0, false, false);
+            else if (op === '≥') correctInterval = formatInterval(x0, Infinity, true, false);
+            else correctInterval = formatInterval(-Infinity, x0, false, true);
+
+            let eqStr = `${a}x`;
+            if (b > 0) eqStr += ` + ${b}`;
+            else if (b < 0) eqStr += ` - ${Math.abs(b)}`;
+            eqStr += ` ${op} ${c}`;
+
+            const pool = [
+                formatInterval(x0, Infinity, true, false),
+                formatInterval(x0, Infinity, false, false),
+                formatInterval(-Infinity, x0, true, false),
+                formatInterval(-Infinity, x0, false, true),
+                formatInterval(-Infinity, x0, false, false),
+                formatInterval(x0 - 1, Infinity, false, false),
+                formatInterval(x0 + 1, Infinity, false, false),
+                formatInterval(-Infinity, x0 - 1, false, false),
+                formatInterval(-Infinity, x0 + 1, false, false),
+                formatInterval(-x0, Infinity, false, false),
+                formatInterval(-Infinity, -x0, false, false),
+                formatInterval(-x0, x0, false, false),
+            ];
+
+            const options = buildDistractors(correctInterval, pool);
+            return { equation: eqStr, correctInterval, options };
+        }
+
+        // ---------- Генератор СЛОЖНЫХ линейных неравенств ----------
+        // Многоступенчатые: скобки, переносы, отрицательные коэффициенты
+        function generateHardLinear() {
+            const x0 = Math.floor(Math.random() * 21) - 10; // -10..10
+            const finalOp = ['>', '<', '≥', '≤'][Math.floor(Math.random() * 4)];
+
+            let correctInterval;
+            if (finalOp === '>') correctInterval = formatInterval(x0, Infinity, false, false);
+            else if (finalOp === '<') correctInterval = formatInterval(-Infinity, x0, false, false);
+            else if (finalOp === '≥') correctInterval = formatInterval(x0, Infinity, true, false);
+            else correctInterval = formatInterval(-Infinity, x0, false, true);
+
+            const type = Math.floor(Math.random() * 6);
+
+            let leftStr = '';
+            let rightStr = '';
+            let opStr = finalOp;
+
+            if (type === 0) {
+                // -a(b + x) - cx ≥ d
+                const a = -(Math.floor(Math.random() * 5) + 2);
+                const b = Math.floor(Math.random() * 11) - 5;
+                const c = Math.floor(Math.random() * 11) - 10;
+                const coef = a + c;
+                const constTerm = a * b;
+                const rightVal = coef * x0 + constTerm;
+
+                leftStr = `${a}(${b} + x)`;
+                if (c !== 0) leftStr += ` ${c > 0 ? '+' : '-'} ${Math.abs(c)}x`;
+                rightStr = `${rightVal}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            } else if (type === 1) {
+                // ax - b(c + x) < dx + e
+                const a = Math.floor(Math.random() * 8) + 2;
+                const b = Math.floor(Math.random() * 6) + 2;
+                const c = Math.floor(Math.random() * 7) - 3;
+                const leftCoef = a - b;
+                const leftConst = -b * c;
+
+                const d = Math.floor(Math.random() * 8) - 4;
+                const coef = leftCoef - d;
+                const e = coef * x0 + leftConst;
+
+                leftStr = `${a}x - ${b}(${c} + x)`;
+                if (d === 0) rightStr = `${e}`;
+                else if (d === 1) rightStr = `x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+                else if (d === -1) rightStr = `-x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+                else rightStr = `${d}x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            } else if (type === 2) {
+                // ax - b(-7 + cx) < dx + e
+                const a = Math.floor(Math.random() * 6) + 3;
+                const b = -(Math.floor(Math.random() * 5) + 3);
+                const c = Math.floor(Math.random() * 5) + 1;
+                const leftCoef = a + b * c;
+                const leftConst = b * (-7);
+
+                const d = Math.floor(Math.random() * 11) - 5;
+                const coef = leftCoef - d;
+                const e = coef * x0 + leftConst;
+
+                leftStr = `${a}x ${b < 0 ? '-' : '+'} ${Math.abs(b)}(-7 ${c > 0 ? '+' : '-'} ${Math.abs(c)}x)`;
+                if (d === 0) rightStr = `${e}`;
+                else if (d === 1) rightStr = `x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+                else if (d === -1) rightStr = `-x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+                else rightStr = `${d}x ${e >= 0 ? '+' : '-'} ${Math.abs(e)}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            } else if (type === 3) {
+                // -x + b(-7 + dx) > fx + g
+                const a = -(Math.floor(Math.random() * 3) + 1);
+                const b = Math.floor(Math.random() * 5) + 2;
+                const c = -7;
+                const d = Math.floor(Math.random() * 5) + 1;
+                const leftCoef = a + b * d;
+                const leftConst = b * c;
+                const f = Math.floor(Math.random() * 11) - 5;
+                const coef = leftCoef - f;
+                const g = coef * x0 + leftConst;
+
+                leftStr = `${a === -1 ? '-' : a}x ${b > 0 ? '+' : '-'} ${Math.abs(b)}(${c} + ${d}x)`;
+                if (f === 0) rightStr = `${g}`;
+                else if (f === 1) rightStr = `x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else if (f === -1) rightStr = `-x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else rightStr = `${f}x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            } else if (type === 4) {
+                // ax + b(c - dx) > fx + g
+                const a = Math.floor(Math.random() * 7) + 2;
+                const b = Math.floor(Math.random() * 4) + 2;
+                const c = -(Math.floor(Math.random() * 7) + 1);
+                const d = -(Math.floor(Math.random() * 5) + 2);
+                const leftCoef = a + b * d;
+                const leftConst = b * c;
+                const f = Math.floor(Math.random() * 11) - 5;
+                const coef = leftCoef - f;
+                const g = coef * x0 + leftConst;
+
+                leftStr = `${a}x + ${b}(${c} ${d > 0 ? '+' : '-'} ${Math.abs(d)}x)`;
+                if (f === 0) rightStr = `${g}`;
+                else if (f === 1) rightStr = `x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else if (f === -1) rightStr = `-x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else rightStr = `${f}x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            } else {
+                // ax + b(c + dx) ≤ fx + g
+                const a = Math.floor(Math.random() * 5) + 2;
+                const b = Math.floor(Math.random() * 4) + 2;
+                const c = -(Math.floor(Math.random() * 7) + 3);
+                const d = Math.floor(Math.random() * 7) + 1;
+                const leftCoef = a + b * d;
+                const leftConst = b * c;
+                const f = -(Math.floor(Math.random() * 7) + 2);
+                const coef = leftCoef - f;
+                const g = coef * x0 + leftConst;
+
+                leftStr = `${a}x + ${b}(${c} + ${d}x)`;
+                if (f === 0) rightStr = `${g}`;
+                else if (f === 1) rightStr = `x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else if (f === -1) rightStr = `-x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+                else rightStr = `${f === -1 ? '-' : f}x ${g >= 0 ? '+' : '-'} ${Math.abs(g)}`;
+
+                if (coef < 0) {
+                    if (finalOp === '>') opStr = '<';
+                    else if (finalOp === '<') opStr = '>';
+                    else if (finalOp === '≥') opStr = '≤';
+                    else opStr = '≥';
+                }
+            }
+
+            const eqStr = `${leftStr} ${opStr} ${rightStr}`;
+
+            const pool = [
+                formatInterval(x0, Infinity, true, false),
+                formatInterval(x0, Infinity, false, false),
+                formatInterval(-Infinity, x0, true, false),
+                formatInterval(-Infinity, x0, false, true),
+                formatInterval(-Infinity, x0, false, false),
+                formatInterval(x0 - 1, Infinity, false, false),
+                formatInterval(x0 + 1, Infinity, false, false),
+                formatInterval(-Infinity, x0 - 1, false, false),
+                formatInterval(-Infinity, x0 + 1, false, false),
+                formatInterval(x0 - 1, Infinity, true, false),
+                formatInterval(x0 + 1, Infinity, true, false),
+                formatInterval(-Infinity, x0 - 1, false, true),
+                formatInterval(-Infinity, x0 + 1, false, true),
+                formatInterval(-x0, Infinity, false, false),
+                formatInterval(-x0, Infinity, true, false),
+                formatInterval(-Infinity, -x0, false, false),
+                formatInterval(-Infinity, -x0, false, true),
+                formatInterval(-x0 - 1, Infinity, false, false),
+                formatInterval(-x0 + 1, Infinity, false, false),
+                formatInterval(-Infinity, -x0 - 1, false, false),
+                formatInterval(-Infinity, -x0 + 1, false, false),
+                formatInterval(-x0, x0, false, false),
+                formatInterval(-x0, x0, true, true),
+            ];
+
+            const trickyPool = [
+                `${formatInterval(-Infinity, x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`,
+                `${formatInterval(-Infinity, x0 - 1, false, false)} ∪ ${formatInterval(x0 + 1, Infinity, false, false)}`,
+                `${formatInterval(-Infinity, -x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`,
+                formatInterval(x0, x0 + 1, true, true),
+                formatInterval(x0 - 1, x0, true, true),
+                formatInterval(-x0 - 1, -x0, false, false),
+                formatInterval(-x0, -x0 + 1, false, false),
+            ];
+
+            const options = buildDistractors(correctInterval, pool, trickyPool);
+            return { equation: eqStr, correctInterval, options };
+        }
+
+        // ---------- Счётчик: 2 лёгких -> 1 сложный ----------
+        let easyCounter = 0;
+        function generateTask() {
+            // Цикл: 1-й и 2-й — лёгкие, 3-й — сложный, и т.д.
+            if (easyCounter < 2) {
+                easyCounter++;
+                return generateEasyLinear();
+            } else {
+                easyCounter = 0;
+                return generateHardLinear();
+            }
+        }
+
+        // ---------- Состояние игры ----------
+        let currentTask = null;
+        let placedCardValue = null;
+        let placedCardEl = null;
+        let score = 0;
+        let answered = false;
+
+        const inequalityDisplay = document.getElementById('inequalityDisplay');
+        const cardsContainer = document.getElementById('cardsContainer');
+        const answerZone = document.getElementById('answerZone');
+        const answerPlaceholder = document.getElementById('answerPlaceholder');
+        const checkBtn = document.getElementById('checkBtn');
+        const newTaskBtn = document.getElementById('newTaskBtn');
+        const messageArea = document.getElementById('messageArea');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const scoreValue = document.getElementById('scoreValue');
+        const resetScoreBtn = document.getElementById('resetScoreBtn');
+
+        function updateScoreUI() {
+            scoreDisplay.textContent = score;
+            scoreValue.textContent = score;
+        }
+
+        function showPlaceholderIfEmpty() {
+            answerPlaceholder.style.display = placedCardEl ? 'none' : '';
+        }
+
+        function resetAnswerZone() {
+            if (placedCardEl) {
+                placedCardEl.classList.remove('placed', 'correct-highlight', 'wrong-highlight', 'disabled');
+                placedCardEl.style.position = '';
+                placedCardEl.style.left = '';
+                placedCardEl.style.top = '';
+                placedCardEl.style.width = '';
+                placedCardEl.style.height = '';
+                placedCardEl.style.transform = '';
+                cardsContainer.appendChild(placedCardEl);
+                placedCardEl = null;
+                placedCardValue = null;
+            }
+            showPlaceholderIfEmpty();
+        }
+
+        function renderCards() {
+            placedCardEl = null;
+            placedCardValue = null;
+            showPlaceholderIfEmpty();
+
+            cardsContainer.innerHTML = '';
+            if (!currentTask) return;
+            currentTask.options.forEach(opt => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.textContent = opt;
+                card.dataset.value = opt;
+                card.addEventListener('pointerdown', onPointerDown);
+                cardsContainer.appendChild(card);
+            });
+            answered = false;
+            checkBtn.disabled = false;
+            messageArea.innerHTML = '';
+        }
+
+        // ---------- Drag & Drop ----------
+        let dragState = null;
+
+        function onPointerDown(e) {
+            const card = e.currentTarget;
+            if (answered || card.classList.contains('disabled')) return;
+            e.preventDefault();
+
+            const rect = card.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
+
+            const ghost = card.cloneNode(true);
+            ghost.classList.add('ghost');
+            ghost.style.width = rect.width + 'px';
+            ghost.style.height = rect.height + 'px';
+            ghost.style.left = rect.left + 'px';
+            ghost.style.top = rect.top + 'px';
+            ghost.style.fontSize = getComputedStyle(card).fontSize;
+            ghost.style.padding = getComputedStyle(card).padding;
+            ghost.style.borderRadius = getComputedStyle(card).borderRadius;
+            document.body.appendChild(ghost);
+
+            card.classList.add('dragging');
+
+            dragState = {
+                card, ghost, offsetX, offsetY,
+                originalParent: card.parentElement,
+                originalNextSibling: card.nextSibling,
+                startX: e.clientX, startY: e.clientY,
+            };
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        }
+
+        function onPointerMove(e) {
+            if (!dragState) return;
+            dragState.ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
+            dragState.ghost.style.top = (e.clientY - dragState.offsetY) + 'px';
+
+            const zoneRect = answerZone.getBoundingClientRect();
+            const overZone = e.clientX >= zoneRect.left && e.clientX <= zoneRect.right &&
+                             e.clientY >= zoneRect.top && e.clientY <= zoneRect.bottom;
+            answerZone.classList.toggle('drag-over', overZone);
+        }
+
+        function onPointerUp(e) {
+            if (!dragState) return;
+            const { card, ghost, originalParent, originalNextSibling } = dragState;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            answerZone.classList.remove('drag-over');
+            ghost.remove();
+            card.classList.remove('dragging');
+
+            const zoneRect = answerZone.getBoundingClientRect();
+            const droppedInZone = e.clientX >= zoneRect.left && e.clientX <= zoneRect.right &&
+                                  e.clientY >= zoneRect.top && e.clientY <= zoneRect.bottom;
+
+            if (droppedInZone) {
+                if (placedCardEl && placedCardEl !== card) resetAnswerZone();
+                card.classList.remove('correct-highlight', 'wrong-highlight', 'disabled');
+                card.classList.add('placed');
+                if (card.parentElement) card.parentElement.removeChild(card);
+                answerZone.appendChild(card);
+                placedCardEl = card;
+                placedCardValue = card.dataset.value;
+                showPlaceholderIfEmpty();
+            } else {
+                if (card.parentElement === answerZone) {
+                    card.classList.remove('placed', 'correct-highlight', 'wrong-highlight', 'disabled');
+                    cardsContainer.appendChild(card);
+                    placedCardEl = null;
+                    placedCardValue = null;
+                    showPlaceholderIfEmpty();
+                } else if (originalParent && originalParent !== answerZone) {
+                    if (originalNextSibling && originalNextSibling.parentElement === originalParent) {
+                        originalParent.insertBefore(card, originalNextSibling);
+                    } else {
+                        originalParent.appendChild(card);
+                    }
+                }
+            }
+
+            dragState = null;
+        }
+
+        // ---------- Проверка ----------
+        function checkAnswer() {
+            if (answered) {
+                messageArea.innerHTML = '<span class="feedback-error">Вы уже ответили на это задание. Нажмите «Новое задание».</span>';
+                return;
+            }
+            if (!placedCardEl || !placedCardValue) {
+                messageArea.innerHTML = '<span class="feedback-error">Сначала перетащите карточку с промежутком в поле ответа.</span>';
+                return;
+            }
+            const isCorrect = (placedCardValue === currentTask.correctInterval);
+            answered = true;
+            checkBtn.disabled = true;
+
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.add('disabled');
+                const val = card.dataset.value;
+                if (val === currentTask.correctInterval) {
+                    card.classList.add('correct-highlight');
+                } else if (card === placedCardEl && !isCorrect) {
+                    card.classList.add('wrong-highlight');
+                }
+            });
+
+            if (isCorrect) {
+                score++;
+                updateScoreUI();
+                messageArea.innerHTML = '<span class="feedback-success">Верно! Отличная работа.</span>';
+            } else {
+                messageArea.innerHTML = `<span class="feedback-error">Неверно. Правильный промежуток: <strong>${currentTask.correctInterval}</strong></span>`;
+            }
+        }
+
+        function newTask() {
+            resetAnswerZone();
+            cardsContainer.innerHTML = '';
+            answerZone.innerHTML = '';
+            answerZone.appendChild(answerPlaceholder);
+            answerPlaceholder.style.display = '';
+            placedCardEl = null;
+            placedCardValue = null;
+
+            currentTask = generateTask();
+            inequalityDisplay.textContent = currentTask.equation;
+            renderCards();
+        }
+
+        function resetScore() {
+            score = 0;
+            updateScoreUI();
+            messageArea.innerHTML = '<span style="opacity:0.7;">Счёт сброшен.</span>';
+            setTimeout(() => {
+                if (messageArea.innerHTML.includes('Счёт сброшен')) messageArea.innerHTML = '';
+            }, 1500);
+        }
+
+        function init() {
+            updateScoreUI();
+            answerZone.innerHTML = '';
+            answerZone.appendChild(answerPlaceholder);
+            newTask();
+            checkBtn.addEventListener('click', checkAnswer);
+            newTaskBtn.addEventListener('click', newTask);
+            resetScoreBtn.addEventListener('click', resetScore);
+            document.addEventListener('dragstart', (e) => e.preventDefault());
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
