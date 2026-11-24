@@ -12,23 +12,14 @@
             height: 100%; touch-action: none;
         }
         .container { position: relative; width: 100%; height: 100%; }
-
-        /* Верхняя панель с исходными квадратами */
         .tray {
-            position: absolute;
-            top: 10px;
-            left: 50%;
+            position: absolute; top: 10px; left: 50%;
             transform: translateX(-50%);
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 6px;
-            max-width: calc(100vw - 20px);
-            z-index: 100;
-            pointer-events: none;
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 6px; max-width: calc(100vw - 20px);
+            z-index: 100; pointer-events: none;
         }
         .tray > * { pointer-events: auto; }
-
         .stage {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -66,8 +57,6 @@
             overflow: hidden; text-overflow: ellipsis;
             min-height: 34px; text-align: center;
         }
-
-        /* Квадраты — в потоке верхней панели, пока не взяты */
         .square {
             width: 80px; height: 80px;
             background-color: white; border: 1px solid black;
@@ -77,13 +66,7 @@
             color: black; font-size: 36px; font-weight: bold;
             font-family: Arial, sans-serif;
         }
-
-        /* Когда квадрат вытащен — он абсолютный и «летает» */
-        .square.floating {
-            position: absolute;
-            z-index: 500;
-        }
-
+        .square.floating { position: absolute; z-index: 500; }
         .square.dragging {
             cursor: grabbing; z-index: 1000;
             outline: 2px solid #4a90e2; outline-offset: 2px;
@@ -139,7 +122,6 @@
 
         const labels = ['1', '2', '3', '4', '5', '+', '−', '·', 'x', '<', '='];
 
-        // Создаём квадраты и сразу кладём их в верхнюю панель (tray)
         labels.forEach((label) => {
             const square = document.createElement('div');
             square.className = 'square';
@@ -164,118 +146,51 @@
                 calcResult.textContent = value === undefined ? display : `${display} = ${value}`;
                 calcResult.style.color = '#333';
             } catch (err) {
+                console.error('EVAL ERROR:', err);
                 calcResult.textContent = 'Ошибка в выражении';
                 calcResult.style.color = '#c0392b';
             }
         });
 
-        // ===== Нормализация символов =====
-        // Приводим разные юникод-варианты к каноническим токенам.
         function normalizeToken(t) {
-    if (t === '−' || t === '–' || t === '—' || t === '-') return '-';
-    if (t === '·' || t === '•' || t === '⋅' || t === '*' || t === '×') return '*';
-    if (t === 'x' || t === 'х' || t === '𝑥' || t === 'X') return 'x';
-    if (t === '<' || t === '＜' || t === '‹') return '<';
-    if (t === '=' || t === '＝') return '=';
-    return t;
-}
+            if (t === '−' || t === '–' || t === '—' || t === '-') return '-';
+            if (t === '·' || t === '•' || t === '⋅' || t === '*' || t === '×') return '*';
+            if (t === 'x' || t === 'х' || t === '𝑥' || t === 'X') return 'x';
+            if (t === '<' || t === '＜' || t === '‹') return '<';
+            if (t === '=' || t === '＝') return '=';
+            return t;
+        }
 
-        // ===== Вычислитель =====
         function evaluate(tokens) {
-    console.log('RAW TOKENS:', tokens.map(t => t + ' (U+' + t.charCodeAt(0).toString(16).toUpperCase() + ')'));
+            console.log('RAW TOKENS:', tokens.map(t => t + ' (U+' + t.charCodeAt(0).toString(16).toUpperCase() + ')'));
 
-    const norm = tokens.map(normalizeToken);
-    console.log('NORMALIZED:', norm);
+            const norm = tokens.map(normalizeToken);
+            console.log('NORMALIZED:', norm);
 
-    // 1. Склейка цифр + неявное умножение числа и x
-    const merged = [];
-    for (const t of norm) {
-        const isDigit = /^\d+$/.test(t);
-        const isX = (t === 'x');
-        const prev = merged[merged.length - 1];
-        const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
-        const prevIsX = (prev === 'x');
+            const merged = [];
+            for (const t of norm) {
+                const isDigit = /^\d+$/.test(t);
+                const isX = (t === 'x');
+                const prev = merged[merged.length - 1];
+                const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
+                const prevIsX = (prev === 'x');
 
-        if (isDigit && prevIsDigit) {
-            merged[merged.length - 1] = prev + t;
-        } else if (isDigit && prevIsX) {
-            merged[merged.length - 1] = t + '*x';
-        } else if (isX && prevIsDigit) {
-            merged[merged.length - 1] = prev + '*x';
-        } else if (isX && prevIsX) {
-            merged.push('*');
-            merged.push(t);
-        } else {
-            merged.push(t);
-        }
-    }
-
-    if (merged.length === 0) throw new Error('empty');
-
-    const flat = [];
-    for (const t of merged) {
-        if (typeof t === 'string' && t.includes('*')) {
-            const parts = t.split('*');
-            for (let k = 0; k < parts.length; k++) {
-                if (k > 0) flat.push('*');
-                flat.push(parts[k]);
+                if (isDigit && prevIsDigit) {
+                    merged[merged.length - 1] = prev + t;
+                } else if (isDigit && prevIsX) {
+                    merged[merged.length - 1] = t + '*x';
+                } else if (isX && prevIsDigit) {
+                    merged[merged.length - 1] = prev + '*x';
+                } else if (isX && prevIsX) {
+                    merged.push('*');
+                    merged.push(t);
+                } else {
+                    merged.push(t);
+                }
             }
-        } else {
-            flat.push(t);
-        }
-    }
 
-    console.log('FLAT:', flat);
+            if (merged.length === 0) throw new Error('empty');
 
-    const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
-    const hasX = flat.includes('x');
-
-    // 2. Равенство
-    const eqIndex = flat.indexOf('=');
-    if (eqIndex !== -1) {
-        if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
-        const left = flat.slice(0, eqIndex);
-        const right = flat.slice(eqIndex + 1);
-        if (left.length === 0 || right.length === 0) throw new Error('bad =');
-
-        if (!hasX) {
-            const leftVal = evalArithmetic(left);
-            const rightVal = evalArithmetic(right);
-            return { display: pretty, value: (leftVal === rightVal) ? 'верно' : 'неверно' };
-        }
-
-        const { a, b } = toLinear(left, right);
-        return { display: pretty, value: solveEquation(a, b) };
-    }
-
-    // 3. Неравенство
-    const cmpIndex = flat.indexOf('<');
-    if (cmpIndex !== -1) {
-        if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
-        const left = flat.slice(0, cmpIndex);
-        const right = flat.slice(cmpIndex + 1);
-        if (left.length === 0 || right.length === 0) throw new Error('bad <');
-
-        if (!hasX) {
-            const leftVal = evalArithmetic(left);
-            const rightVal = evalArithmetic(right);
-            return { display: pretty, value: (leftVal < rightVal) ? 'верно' : 'неверно' };
-        }
-
-        const { a, b } = toLinear(left, right);
-        return { display: pretty, value: solveInequality(a, b) };
-    }
-
-    // 4. Без '=' и '<'
-    if (hasX) {
-        const { a, b } = toLinear(flat, []);
-        return { display: pretty, value: solveEquation(a, b) };
-    }
-
-    const value = evalArithmetic(flat);
-    return { display: pretty, value };
-}
-            // Разворачиваем "5*x" обратно в токены ['5','*','x']
             const flat = [];
             for (const t of merged) {
                 if (typeof t === 'string' && t.includes('*')) {
@@ -289,10 +204,11 @@
                 }
             }
 
+            console.log('FLAT:', flat);
+
             const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
             const hasX = flat.includes('x');
 
-            // 2. Равенство
             const eqIndex = flat.indexOf('=');
             if (eqIndex !== -1) {
                 if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
@@ -310,7 +226,6 @@
                 return { display: pretty, value: solveEquation(a, b) };
             }
 
-            // 3. Неравенство
             const cmpIndex = flat.indexOf('<');
             if (cmpIndex !== -1) {
                 if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
@@ -328,7 +243,6 @@
                 return { display: pretty, value: solveInequality(a, b) };
             }
 
-            // 4. Без '=' и '<'
             if (hasX) {
                 const { a, b } = toLinear(flat, []);
                 return { display: pretty, value: solveEquation(a, b) };
@@ -457,8 +371,6 @@
             return result;
         }
 
-        // ===== Перетаскивание =====
-
         function isOverDropZone(el) {
             const rect = el.getBoundingClientRect();
             const zoneRect = dropZone.getBoundingClientRect();
@@ -498,7 +410,6 @@
             }
         }
 
-        // Превращаем элемент в «летающий» (абсолютный), сохраняя позицию на экране
         function makeFloating(el) {
             const rect = el.getBoundingClientRect();
             el.classList.add('floating');
@@ -554,7 +465,6 @@
             element.addEventListener('mousedown', (e) => {
                 let rect;
                 if (element.classList.contains('docked')) {
-                    // Вынимаем из дока, сохраняя позицию
                     const r = element.getBoundingClientRect();
                     element.classList.remove('docked');
                     container.appendChild(element);
@@ -611,7 +521,6 @@
                 }
             });
 
-            // ===== Touch =====
             element.addEventListener('touchstart', (e) => {
                 let rect;
                 if (element.classList.contains('docked')) {
