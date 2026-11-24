@@ -2,31 +2,84 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Перетаскиваемые квадраты с ручной сортировкой</title>
     <style>
-        body {
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
             margin: 0;
             padding: 0;
             background-color: #f0f0f0;
             font-family: Arial, sans-serif;
             overflow: hidden;
+            height: 100%;
+            /* Отключаем прокрутку/зум при перетаскивании на мобильных */
+            touch-action: none;
         }
 
         .container {
             position: relative;
             width: 100%;
-            height: 100vh;
+            height: 100%;
         }
 
-        .drop-zone {
+        /* Обёртка для блока «кнопка + зона + результат» — центрируется на экране */
+        .stage {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            width: max-content;
+            max-width: calc(100vw - 20px);
+            pointer-events: none; /* пропускаем клики сквозь обёртку */
+        }
+
+        .stage > * {
+            pointer-events: auto;
+        }
+
+        /* Кнопка — слева от зоны (по левому краю). На мобильных станет над зоной */
+        .calc-row {
+            display: flex;
+            justify-content: flex-start;
+            padding-left: 0;
+        }
+
+        .calc-button {
+            background-color: #b0b0b0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        .calc-button:hover {
+            background-color: #999;
+        }
+
+        .calc-button:active {
+            background-color: #808080;
+        }
+
+        /* Зона */
+        .drop-zone {
             min-width: 600px;
             width: max-content;
-            max-width: calc(100vw - 40px);
+            max-width: 100%;
             height: 200px;
             border: 2px dashed #999;
             border-radius: 12px;
@@ -51,6 +104,20 @@
             user-select: none;
         }
 
+        /* Результат под зоной */
+        .calc-result {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            font-family: Arial, sans-serif;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 34px;
+            text-align: center;
+        }
+
+        /* Квадраты */
         .square {
             position: absolute;
             width: 80px;
@@ -91,56 +158,78 @@
             flex-shrink: 0;
         }
 
-        .calc-button {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-300px, -50%);
-            margin-top: -170px;
-            background-color: #b0b0b0;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            transition: background-color 0.2s;
+        /* ============ Мобильная адаптация ============ */
+        @media (max-width: 700px) {
+            .drop-zone {
+                min-width: 0;
+                width: 100%;
+                height: auto;
+                min-height: 130px;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+                align-content: center;
+            }
+
+            .stage {
+                width: calc(100vw - 20px);
+                max-width: calc(100vw - 20px);
+            }
+
+            .calc-row {
+                justify-content: center;
+            }
+
+            .calc-button {
+                font-size: 15px;
+                padding: 9px 16px;
+            }
+
+            .calc-result {
+                font-size: 20px;
+                min-height: 26px;
+                white-space: normal;
+            }
+
+            .square {
+                width: 56px;
+                height: 56px;
+                font-size: 26px;
+            }
+
+            .drop-indicator {
+                height: 56px;
+                width: 3px;
+            }
         }
 
-        .calc-button:hover {
-            background-color: #999;
-        }
-
-        .calc-button:active {
-            background-color: #808080;
-        }
-
-        .calc-result {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, 0);
-            margin-top: 120px;
-            font-size: 28px;
-            font-weight: bold;
-            color: #333;
-            font-family: Arial, sans-serif;
-            white-space: nowrap;
-            min-height: 34px;
-            text-align: center;
+        @media (max-width: 380px) {
+            .square {
+                width: 48px;
+                height: 48px;
+                font-size: 22px;
+            }
+            .drop-indicator {
+                height: 48px;
+            }
+            .drop-zone {
+                gap: 6px;
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container" id="container">
-        <div class="drop-zone" id="dropZone">
-            <span class="placeholder" id="placeholder">Перетащите квадраты сюда</span>
+        <div class="stage">
+            <div class="calc-row">
+                <button class="calc-button" id="calcButton">Посчитать</button>
+            </div>
+            <div class="drop-zone" id="dropZone">
+                <span class="placeholder" id="placeholder">Перетащите квадраты сюда</span>
+            </div>
+            <div class="calc-result" id="calcResult"></div>
         </div>
-        <button class="calc-button" id="calcButton">Посчитать</button>
-        <div class="calc-result" id="calcResult"></div>
     </div>
 
     <script>
@@ -160,8 +249,8 @@
             square.dataset.label = label;
             square.textContent = label;
 
-            const maxX = window.innerWidth - 120;
-            const maxY = window.innerHeight - 120;
+            const maxX = window.innerWidth - 100;
+            const maxY = window.innerHeight - 100;
             square.style.left = Math.random() * maxX + 'px';
             square.style.top = Math.random() * maxY + 'px';
 
@@ -178,7 +267,6 @@
             }
 
             const tokens = docked.map(el => el.dataset.label);
-            const expression = tokens.join(' ');
 
             try {
                 const { display, value } = evaluate(tokens);
@@ -190,13 +278,9 @@
             }
         });
 
-        // Вычисление: соседние цифры без знака между ними склеиваются в одно число.
-        // Например: ['1','2','+','3'] -> "12 + 3" = 15
         function evaluate(tokens) {
-            // Нормализуем знак минуса
             const norm = tokens.map(t => t === '−' ? '-' : t);
 
-            // 1. Склеиваем подряд идущие цифры в числа
             const merged = [];
             for (const t of norm) {
                 const isDigit = /^\d+$/.test(t);
@@ -204,21 +288,18 @@
                 const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
 
                 if (isDigit && prevIsDigit) {
-                    // Склеиваем: "1" + "2" -> "12"
                     merged[merged.length - 1] = prev + t;
                 } else {
                     merged.push(t);
                 }
             }
 
-            // 2. Теперь считаем как последовательность чисел и +/-
             if (merged.length === 0) throw new Error('empty');
 
             let result = null;
             let op = '+';
             let i = 0;
 
-            // Унарный минус в начале
             if (merged[0] === '-') {
                 op = '-';
                 i = 1;
@@ -242,7 +323,6 @@
             }
             if (result === null) throw new Error('no numbers');
 
-            // Отображаем "склеенное" выражение с пробелами вокруг операторов
             const display = merged.reduce((acc, t, idx) => {
                 if (idx === 0) return t;
                 if (t === '+' || t === '-') return acc + ' ' + t;
@@ -413,6 +493,7 @@
                 }
             });
 
+            // ===== Touch =====
             element.addEventListener('touchstart', (e) => {
                 let rect;
 
