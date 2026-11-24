@@ -18,13 +18,14 @@
             display: flex; flex-wrap: wrap; justify-content: center;
             gap: 6px; max-width: calc(100vw - 20px);
             z-index: 100; pointer-events: none;
+            transition: top 0.15s ease;
         }
         .tray > * { pointer-events: auto; }
         .stage {
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
-            top: 0; /* будет пересчитано скриптом */
+            top: 50%;
+            transform: translate(-50%, -50%);
             display: flex; flex-direction: column; align-items: stretch;
             gap: 12px; width: max-content; max-width: calc(100vw - 20px);
             pointer-events: none;
@@ -138,7 +139,7 @@
     </style>
 </head>
 <body>
-    <a href="index.html" class="home-button" aria-label="На главную">← На главную</a>
+    <a href="index.html" class="home-button" id="homeButton" aria-label="На главную">← На главную</a>
 
     <div class="container" id="container">
         <div class="tray" id="tray" role="toolbar" aria-label="Доступные квадраты"></div>
@@ -157,12 +158,13 @@
     </div>
 
     <script>
-        const VERSION = '1.2';
+        const VERSION = '1.4';
         document.getElementById('version').textContent = 'версия ' + VERSION;
 
         const container = document.getElementById('container');
         const tray = document.getElementById('tray');
         const stage = document.getElementById('stage');
+        const homeButton = document.getElementById('homeButton');
         const dropZone = document.getElementById('dropZone');
         const placeholder = document.getElementById('placeholder');
         const calcButton = document.getElementById('calcButton');
@@ -202,30 +204,68 @@
             }
         }
 
-        // ===== Позиционирование stage относительно трея =====
-        // Верхняя граница трея + его высота. Интерфейс опускается ниже.
-        function updateStagePosition() {
-            const trayRect = tray.getBoundingClientRect();
-            const bottom = trayRect.bottom;
-            // Отступ между треем и интерфейсом
-            const gap = 12;
-            // На мобильных ограничим, чтобы интерфейс не уезжал за низ экрана
-            const stageHeight = stage.offsetHeight;
-            const maxTop = window.innerHeight - stageHeight - 10;
-            let top = bottom + gap;
-            if (top > maxTop) top = Math.max(gap, maxTop);
-            stage.style.top = top + 'px';
+        // ===== Позиционирование =====
+        // 1. Трей по умолчанию сверху (top: 10px / 6px на мобильных).
+        //    Если карточки в трее пересекаются с кнопкой «На главную» —
+        //    опускаем трей ниже кнопки.
+        // 2. Stage по умолчанию центрирован.
+        //    Если stage пересекается с треем — опускаем stage под трей.
+        function updateLayout() {
+            // --- Шаг 1: позиция трея ---
+            // Сброс к исходному положению
+            const defaultTrayTop = parseFloat(getComputedStyle(tray).getPropertyValue('top')) || 0;
+            // На мобильных CSS задаёт top: 6px, на десктопе 10px — берём из CSS.
+            // Чтобы сбросить inline-стиль, временно очистим:
+            tray.style.top = '';
+            void tray.offsetHeight;
+
+            const homeRect = homeButton.getBoundingClientRect();
+            let trayRect = tray.getBoundingClientRect();
+
+            // Проверяем пересечение трея и кнопки
+            const trayOverlapsHome = !(
+                trayRect.right  < homeRect.left  ||
+                trayRect.left   > homeRect.right ||
+                trayRect.bottom < homeRect.top   ||
+                trayRect.top    > homeRect.bottom
+            );
+
+            if (trayOverlapsHome) {
+                const gap = 8;
+                const newTop = homeRect.bottom + gap;
+                tray.style.top = newTop + 'px';
+                void tray.offsetHeight;
+                trayRect = tray.getBoundingClientRect();
+            }
+
+            // --- Шаг 2: позиция stage ---
+            // Сброс к центрированию
+            stage.style.top = '50%';
+            stage.style.transform = 'translate(-50%, -50%)';
+            void stage.offsetHeight;
+
+            const stageRect = stage.getBoundingClientRect();
+
+            const stageOverlapsTray = !(
+                stageRect.right  < trayRect.left  ||
+                stageRect.left   > trayRect.right ||
+                stageRect.bottom < trayRect.top   ||
+                stageRect.top    > trayRect.bottom
+            );
+
+            if (stageOverlapsTray) {
+                const gap = 12;
+                const maxTop = window.innerHeight - stage.offsetHeight - 10;
+                let top = trayRect.bottom + gap;
+                if (top > maxTop) top = Math.max(gap, maxTop);
+                stage.style.top = top + 'px';
+                stage.style.transform = 'translateX(-50%)';
+            }
         }
 
-        // Пересчитываем при старте и при изменении размеров
-        window.addEventListener('resize', () => {
-            updateStagePosition();
-        });
-
-        // После загрузки шрифтов/раскладки — ещё раз
-        window.addEventListener('load', updateStagePosition);
-        // И сразу, т.к. трей уже создан
-        updateStagePosition();
+        window.addEventListener('resize', updateLayout);
+        window.addEventListener('load', updateLayout);
+        updateLayout();
 
         // ===== Кнопки =====
         calcButton.addEventListener('click', () => {
@@ -276,7 +316,7 @@
             kbdEl = null;
             updateDockState();
             setResult('', '');
-            updateStagePosition();
+            updateLayout();
         });
 
         function setResult(text, cls) {
@@ -742,6 +782,7 @@
                                 el.style.transform = '';
                                 el.style.transition = '';
                                 tray.appendChild(el);
+                                updateLayout();
                             }
                             kbdEl = null;
                             e.preventDefault();
@@ -800,10 +841,11 @@
             el.style.transition = '';
             if (kbdEl === el) kbdEl = null;
             tray.appendChild(el);
+            updateLayout();
         });
 
         updateDockState();
-        updateStagePosition();
+        updateLayout();
     </script>
 </body>
 </html>
