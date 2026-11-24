@@ -21,11 +21,14 @@
         }
         .tray > * { pointer-events: auto; }
         .stage {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 0; /* будет пересчитано скриптом */
             display: flex; flex-direction: column; align-items: stretch;
             gap: 12px; width: max-content; max-width: calc(100vw - 20px);
             pointer-events: none;
+            transition: top 0.15s ease;
         }
         .stage > * { pointer-events: auto; }
         .controls {
@@ -114,7 +117,7 @@
         .home-button:hover { background-color: #999; }
         .home-button:active { background-color: #808080; }
         @media (max-width: 700px) {
-            .tray { top: 52px; gap: 4px; } /* отступ от верхнего края под кнопку */
+            .tray { top: 6px; gap: 4px; }
             .square { width: 56px; height: 56px; font-size: 26px; }
             .drop-zone {
                 min-width: 0; width: 100%; height: auto; min-height: 130px;
@@ -131,7 +134,6 @@
             .square { width: 48px; height: 48px; font-size: 22px; }
             .drop-indicator { height: 48px; }
             .drop-zone { gap: 6px; padding: 10px; }
-            .tray { top: 48px; }
         }
     </style>
 </head>
@@ -140,7 +142,7 @@
 
     <div class="container" id="container">
         <div class="tray" id="tray" role="toolbar" aria-label="Доступные квадраты"></div>
-        <div class="stage">
+        <div class="stage" id="stage">
             <div class="controls">
                 <button class="calc-button" id="calcButton">Посчитать</button>
                 <button class="calc-button secondary" id="clearButton">Очистить</button>
@@ -160,6 +162,7 @@
 
         const container = document.getElementById('container');
         const tray = document.getElementById('tray');
+        const stage = document.getElementById('stage');
         const dropZone = document.getElementById('dropZone');
         const placeholder = document.getElementById('placeholder');
         const calcButton = document.getElementById('calcButton');
@@ -171,7 +174,7 @@
         let activeDrag = null;
         let rafPending = false;
         let lastPointer = { x: 0, y: 0 };
-        let kbdEl = null; // элемент, которым управляют с клавиатуры
+        let kbdEl = null;
 
         const labels = ['1', '2', '3', '4', '5', '+', '−', '·', '/', 'x', '<', '='];
 
@@ -199,6 +202,31 @@
             }
         }
 
+        // ===== Позиционирование stage относительно трея =====
+        // Верхняя граница трея + его высота. Интерфейс опускается ниже.
+        function updateStagePosition() {
+            const trayRect = tray.getBoundingClientRect();
+            const bottom = trayRect.bottom;
+            // Отступ между треем и интерфейсом
+            const gap = 12;
+            // На мобильных ограничим, чтобы интерфейс не уезжал за низ экрана
+            const stageHeight = stage.offsetHeight;
+            const maxTop = window.innerHeight - stageHeight - 10;
+            let top = bottom + gap;
+            if (top > maxTop) top = Math.max(gap, maxTop);
+            stage.style.top = top + 'px';
+        }
+
+        // Пересчитываем при старте и при изменении размеров
+        window.addEventListener('resize', () => {
+            updateStagePosition();
+        });
+
+        // После загрузки шрифтов/раскладки — ещё раз
+        window.addEventListener('load', updateStagePosition);
+        // И сразу, т.к. трей уже создан
+        updateStagePosition();
+
         // ===== Кнопки =====
         calcButton.addEventListener('click', () => {
             const docked = [...dropZone.querySelectorAll('.square.docked')];
@@ -217,24 +245,22 @@
             }
         });
 
-        // ФИКС 1: rect берём ДО appendChild, как в startDrag
         clearButton.addEventListener('click', () => {
             const docked = [...dropZone.querySelectorAll('.square.docked')];
             for (const el of docked) {
-                const r = el.getBoundingClientRect();       // ДО
+                const r = el.getBoundingClientRect();
                 el.classList.remove('docked');
                 el.classList.add('floating');
                 el.style.left = r.left + 'px';
                 el.style.top = r.top + 'px';
                 el.style.width = r.width + 'px';
                 el.style.height = r.height + 'px';
-                container.appendChild(el);                 // ПОСЛЕ
+                container.appendChild(el);
             }
             updateDockState();
             setResult('', '');
         });
 
-        // ФИКС 4: сбрасываем transform/transition
         resetButton.addEventListener('click', () => {
             document.querySelectorAll('.square').forEach(el => {
                 el.classList.remove('docked', 'floating', 'dragging', 'kbd-active');
@@ -250,6 +276,7 @@
             kbdEl = null;
             updateDockState();
             setResult('', '');
+            updateStagePosition();
         });
 
         function setResult(text, cls) {
@@ -424,7 +451,6 @@
                 if (!hasX) {
                     const lv = parseArithmetic(left);
                     const rv = parseArithmetic(right);
-                    // ФИКС 5: точное сравнение с плавающей точкой
                     return { display: pretty, value: Math.abs(lv - rv) < 1e-9 ? 'верно' : 'неверно' };
                 }
                 const L = linearCoefs(left);
@@ -670,7 +696,6 @@
         document.addEventListener('touchcancel', () => { if (activeDrag) { lastPointer = { x: -1, y: -1 }; endDrag(); } });
 
         document.addEventListener('keydown', (e) => {
-            // Escape — отмена текущего drag или клавиатурного режима
             if (e.key === 'Escape') {
                 if (activeDrag) {
                     activeDrag.el.classList.remove('dragging');
@@ -691,7 +716,6 @@
             const el = e.target.closest('.square');
             if (!el) return;
 
-            // ФИКС 2: полноценный клавиатурный drag
             if (el.classList.contains('kbd-active')) {
                 const step = e.shiftKey ? 1 : 10;
                 const r = el.getBoundingClientRect();
@@ -725,7 +749,6 @@
                         }
                 }
                 if (moved) {
-                    // Ограничим, чтобы не улетел за экран
                     const nr = el.getBoundingClientRect();
                     if (nr.left < 0) el.style.left = '0px';
                     if (nr.top < 0) el.style.top = '0px';
@@ -736,11 +759,9 @@
                 return;
             }
 
-            // Взять квадрат с клавиатуры
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 if (el.classList.contains('docked')) {
-                    // Вынимаем, сохраняя позицию (rect ДО appendChild)
                     const r = el.getBoundingClientRect();
                     el.classList.remove('docked');
                     el.classList.add('floating');
@@ -751,7 +772,6 @@
                     container.appendChild(el);
                     updateDockState();
                 } else if (!el.classList.contains('floating')) {
-                    // Из трея — делаем floating на том же месте
                     const r = el.getBoundingClientRect();
                     el.classList.add('floating');
                     el.style.left = r.left + 'px';
@@ -766,7 +786,6 @@
             }
         });
 
-        // Double-click по летающему квадрату — вернуть в трей
         document.addEventListener('dblclick', (e) => {
             const el = e.target.closest('.square');
             if (!el) return;
@@ -784,6 +803,7 @@
         });
 
         updateDockState();
+        updateStagePosition();
     </script>
 </body>
 </html>
