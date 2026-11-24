@@ -3,27 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Собери промежуток — решение неравенств</title>
+    <title>Тренажёр: решение неравенств</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body {
-            background: linear-gradient(145deg, #f6f9fc 0%, #e6f0f5 100%);
-            min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            background: #ffffff;
+            min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
             margin: 0; padding: 20px;
         }
         .game-container {
             max-width: 980px; width: 100%;
-            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px);
-            border-radius: 48px; box-shadow: 0 25px 40px -10px rgba(0, 30, 50, 0.3), 0 0 0 1px rgba(255,255,255,0.7) inset;
-            padding: 36px 30px 30px;
+            background: #f8faff;
+            border-radius: 48px; 
+            box-shadow: 0 25px 40px -10px rgba(0, 30, 50, 0.15), 0 0 0 1px #e0e8f5 inset;
+            padding: 30px 30px 30px;
+            margin-bottom: 20px;
         }
-        h1 {
-            font-size: 2rem; font-weight: 600; color: #1a3e60; text-align: center;
-            margin: 0 0 20px;
+        /* Верхняя панель со статистикой */
+        .top-panel {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
         }
+        .stat-badge { 
+            background: #fff; padding: 9px 20px; border-radius: 60px; font-weight: 600; 
+            box-shadow: 0 0 0 1px #bdd3e6 inset; font-size: 1rem; color: #1a3e60;
+        }
+        .stat-badge span { color: #1a78c2; font-weight: 700; }
+        .reset-btn { 
+            background: transparent; color: #1a3e60; box-shadow: 0 0 0 1.5px #bdd3e6 inset; 
+            padding: 9px 20px; font-size: 0.95rem; border: none; border-radius: 60px; cursor: pointer;
+        }
+        .level-indicator {
+            text-align: center;
+            font-size: 1rem;
+            color: #5b7a96;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .level-indicator span { color: #1a78c2; font-weight: 700; }
         .inequality-box {
-            background: #ffffffd9; border-radius: 32px; padding: 28px 24px; margin-bottom: 28px;
-            box-shadow: 0 10px 20px -8px rgba(0, 20, 40, 0.2), 0 0 0 1px #ffffff inset, 0 0 0 1px #bdd3e6;
+            background: #ffffff; border-radius: 32px; padding: 28px 24px; margin-bottom: 28px;
+            box-shadow: 0 10px 20px -8px rgba(0, 20, 40, 0.1), 0 0 0 1px #ffffff inset, 0 0 0 1px #bdd3e6;
             text-align: center; font-weight: 700; color: #0b2d46; line-height: 1.6; font-size: 2.3rem;
             white-space: normal; overflow-wrap: break-word;
         }
@@ -50,7 +73,7 @@
         .cards-area { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 28px; min-height: 90px; }
         .card {
             background: white; border-radius: 22px; padding: 12px 18px; font-size: 1.5rem;
-            font-weight: 600; color: #0b2d46; box-shadow: 0 12px 18px -8px rgba(0, 30, 50, 0.25), 0 0 0 1px #cddfee inset;
+            font-weight: 600; color: #0b2d46; box-shadow: 0 12px 18px -8px rgba(0, 30, 50, 0.15), 0 0 0 1px #cddfee inset;
             cursor: grab; min-width: 115px; text-align: center; user-select: none;
             border: 2px solid transparent; touch-action: none; white-space: nowrap;
             transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
@@ -65,12 +88,12 @@
         .card.dragging { opacity: 0.35; }
         
         .controls { display: flex; justify-content: center; gap: 16px; margin-top: 6px; flex-wrap: wrap; }
-        button {
+        button.primary-btn {
             border: none; background: #1a3e60; color: white; padding: 15px 30px;
             font-size: 1.2rem; font-weight: 600; border-radius: 60px; cursor: pointer;
         }
-        button.secondary { background: #fff; color: #1a3e60; box-shadow: 0 0 0 1px #bdd3e6 inset; }
-        button:disabled { opacity: 0.45; pointer-events: none; }
+        button.secondary-btn { background: #fff; color: #1a3e60; box-shadow: 0 0 0 1px #bdd3e6 inset; border: none; padding: 15px 30px; font-size: 1.2rem; font-weight: 600; border-radius: 60px; cursor: pointer; }
+        button.primary-btn:disabled { opacity: 0.45; pointer-events: none; }
         
         .message-area { 
             text-align: center; margin-top: 22px; min-height: 54px; font-size: 1.25rem; 
@@ -78,36 +101,82 @@
         }
         .feedback-success { color: #1d7a47; background: #e2f3e6; padding: 9px 24px; border-radius: 60px; }
         .feedback-error { color: #b33b3b; background: #fce4e4; padding: 9px 24px; border-radius: 60px; }
-        
-        .footer { margin-top: 18px; display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; align-items: center; }
-        .score-badge { background: #fff; padding: 9px 20px; border-radius: 60px; font-weight: 600; box-shadow: 0 0 0 1px #bdd3e6 inset; }
-        .reset-btn { background: transparent; color: #1a3e60; box-shadow: 0 0 0 1.5px #bdd3e6 inset; padding: 11px 22px; font-size: 0.95rem; }
+
+        /* Блок инструкции */
+        .instructions {
+            max-width: 980px;
+            width: 100%;
+            background: #f8faff;
+            border-radius: 32px;
+            padding: 24px 30px;
+            box-shadow: 0 10px 20px -8px rgba(0, 30, 50, 0.1), 0 0 0 1px #e0e8f5 inset;
+            color: #3f5e7a;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .instructions h3 {
+            margin: 0 0 12px 0;
+            font-size: 1.2rem;
+            color: #1a3e60;
+            text-align: center;
+        }
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 6px;
+        }
         
         @media (max-width: 700px) {
             .inequality-box { font-size: 1.7rem; }
             .card { font-size: 1.1rem; }
-            h1 { font-size: 1.5rem; }
+            .stat-badge { font-size: 0.85rem; padding: 7px 14px; }
+            .instructions { padding: 16px 20px; }
         }
     </style>
 </head>
 <body>
 <div class="game-container">
-    <h1>Собери промежуток</h1>
+    <!-- Верхняя панель со статистикой -->
+    <div class="top-panel">
+        <div class="stat-badge">Очки: <span id="scoreValue">0</span></div>
+        <div class="stat-badge">Решено: <span id="solvedValue">0</span></div>
+        <div class="stat-badge">Всего: <span id="totalValue">0</span></div>
+        <button id="resetScoreBtn" class="reset-btn">Сбросить</button>
+    </div>
+    
+    <!-- Индикатор текущего уровня сложности -->
+    <div class="level-indicator" id="levelIndicator">Уровень: <span>Легкий</span></div>
+    
+    <!-- Основная рабочая область -->
     <div class="inequality-box" id="inequalityDisplay">2x + 3 > 7</div>
     <div class="answer-zone-label">Поле ответа</div>
     <div class="answer-zone" id="answerZone" role="button" tabindex="0" aria-label="Поле ответа. Перетащите или выберите карточку.">
         <span class="placeholder" id="answerPlaceholder">Перетащите карточку сюда</span>
     </div>
     <div class="cards-area" id="cardsContainer" role="group" aria-label="Варианты промежутков"></div>
+    
+    <!-- Кнопки управления -->
     <div class="controls">
-        <button id="checkBtn">Проверить</button>
-        <button id="newTaskBtn" class="secondary">Новое задание</button>
+        <button id="checkBtn" class="primary-btn">Проверить</button>
+        <button id="newTaskBtn" class="secondary-btn">Новое задание</button>
     </div>
     <div class="message-area" id="messageArea" role="status" aria-live="polite"></div>
-    <div class="footer">
-        <div class="score-badge">Очки: <span id="scoreValue">0</span></div>
-        <button id="resetScoreBtn" class="reset-btn">Сбросить счёт</button>
-    </div>
+</div>
+
+<!-- Блок с инструкцией -->
+<div class="instructions">
+    <h3>Как работать с тренажёром</h3>
+    <ul>
+        <li>Вам показывается неравенство. Необходимо подобрать правильный числовой промежуток, который является его решением.</li>
+        <li>Перетащите карточку с промежутком в поле ответа (или просто кликните по ней, чтобы выбрать, и затем кликните по полю).</li>
+        <li>Нажмите кнопку «Проверить», чтобы подтвердить свой ответ.</li>
+        <li>Если ответ неверный, карточка вернётся на исходное место, и вы сможете выбрать другой вариант.</li>
+        <li><strong>Система оценивания:</strong> правильный ответ с первой попытки даёт 2 очка, со второй — 1 очко, с третьей и последующих — 0 очков.</li>
+        <li>По мере накопления очков сложность автоматически повышается (Легкий → Средний → Сложный).</li>
+        <li>Кнопка «Новое задание» позволяет пропустить текущую задачу. Пропущенные задачи учитываются в общем счётчике «Всего».</li>
+    </ul>
 </div>
 
 <!-- ============================================================ -->
@@ -118,6 +187,7 @@
         const CARDS_COUNT = 8;
         const WRONG_COUNT = CARDS_COUNT - 1;
         const MAX_ATTEMPTS = 10;
+        const FIXED_CONST = -7; // Константа для разнообразия в сложных заданиях
 
         function formatInterval(left, right, leftInc, rightInc) {
             if (left === -Infinity) leftInc = false;
@@ -174,7 +244,6 @@
             return shuffle([correct, ...wrong]);
         }
 
-        // Форматирует коэффициент при x: 1 -> '', -1 -> '-', иначе число
         function formatCoef(coef) {
             if (coef === 1) return '';
             if (coef === -1) return '-';
@@ -193,7 +262,6 @@
             else if (op === '≥') correct = formatInterval(x0, Infinity, true, false);
             else correct = formatInterval(-Infinity, x0, false, true);
 
-            // Используем formatCoef для коэффициента a
             let eq = `${formatCoef(a)}x`;
             if (b > 0) eq += ` + ${b}`;
             else if (b < 0) eq += ` - ${Math.abs(b)}`;
@@ -218,6 +286,82 @@
                 .map(p => formatInterval(p.l, p.r, p.li, p.ri));
 
             return { equation: eq, correctInterval: correct, options: buildDistractors(correct, pool) };
+        }
+
+        function generateMedium() {
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                const x0 = Math.floor(Math.random() * 21) - 10;
+                const finalOp = ['>', '<', '≥', '≤'][Math.floor(Math.random() * 4)];
+                let correct;
+                if (finalOp === '>') correct = formatInterval(x0, Infinity, false, false);
+                else if (finalOp === '<') correct = formatInterval(-Infinity, x0, false, false);
+                else if (finalOp === '≥') correct = formatInterval(x0, Infinity, true, false);
+                else correct = formatInterval(-Infinity, x0, false, true);
+
+                const type = Math.floor(Math.random() * 3);
+                let left = '', coef = 0, d = 0, e = 0;
+
+                if (type === 0) {
+                    const a = Math.floor(Math.random() * 5) + 2;
+                    const b = Math.floor(Math.random() * 11) - 5;
+                    const c = a * (x0 + b);
+                    left = `${a}(x ${b >= 0 ? '+' : '-'} ${Math.abs(b)})`;
+                    coef = a;
+                    e = c - a * b;
+                } else if (type === 1) {
+                    const a = Math.floor(Math.random() * 5) + 1;
+                    const c = Math.floor(Math.random() * 4);
+                    const b = Math.floor(Math.random() * 11) - 5;
+                    const d = b - (a - c) * x0;
+                    left = `${formatCoef(a)}x ${b >= 0 ? '+' : '-'} ${Math.abs(b)}`;
+                    if (c > 0) left += ` - ${c}x`;
+                    coef = a - c;
+                    e = d;
+                } else {
+                    const a = Math.floor(Math.random() * 8) + 2;
+                    const b = Math.floor(Math.random() * 6) + 2;
+                    const c = Math.floor(Math.random() * 7) - 3;
+                    const leftCoef = a - b;
+                    const leftConst = -b * c;
+                    const dd = Math.floor(Math.random() * 8) - 4;
+                    coef = leftCoef - dd;
+                    e = coef * x0 + leftConst;
+                    left = `${a}x - ${b}(${c} + x)`;
+                    d = dd;
+                }
+
+                if (coef === 0) continue;
+
+                const op = flipOp(coef, finalOp);
+                const right = formatRight(d, e);
+                const eq = `${left} ${op} ${right}`;
+
+                const rawPool = [
+                    { l: x0, r: Infinity, li: true, ri: false },
+                    { l: x0, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: x0, li: false, ri: true },
+                    { l: -Infinity, r: x0, li: false, ri: false },
+                    { l: x0 - 1, r: Infinity, li: false, ri: false },
+                    { l: x0 + 1, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: x0 - 1, li: false, ri: false },
+                    { l: -Infinity, r: x0 + 1, li: false, ri: false },
+                    { l: -x0, r: Infinity, li: false, ri: false },
+                    { l: -Infinity, r: -x0, li: false, ri: false },
+                    { l: -x0, r: x0, li: false, ri: false },
+                ];
+                
+                const pool = rawPool
+                    .filter(p => isValidInterval(p.l, p.r, p.li, p.ri))
+                    .map(p => formatInterval(p.l, p.r, p.li, p.ri));
+
+                const tricky = [
+                    `${formatInterval(-Infinity, x0, false, false)} ∪ ${formatInterval(x0, Infinity, false, false)}`,
+                    `${formatInterval(-Infinity, x0 - 1, false, false)} ∪ ${formatInterval(x0 + 1, Infinity, false, false)}`,
+                ];
+
+                return { equation: eq, correctInterval: correct, options: buildDistractors(correct, pool, tricky) };
+            }
+            return generateEasy();
         }
 
         function generateHard() {
@@ -255,16 +399,16 @@
                     const c = Math.floor(Math.random() * 5) + 1;
                     d = Math.floor(Math.random() * 11) - 5;
                     coef = (a + b * c) - d;
-                    e = coef * x0 + b * (-7);
-                    left = `${a}x ${b < 0 ? '-' : '+'} ${Math.abs(b)}(-7 ${c > 0 ? '+' : '-'} ${Math.abs(c)}x)`;
+                    e = coef * x0 + b * FIXED_CONST;
+                    left = `${a}x ${b < 0 ? '-' : '+'} ${Math.abs(b)}(${FIXED_CONST} ${c > 0 ? '+' : '-'} ${Math.abs(c)}x)`;
                 } else if (type === 3) {
                     const a = -(Math.floor(Math.random() * 3) + 1);
                     const b = Math.floor(Math.random() * 5) + 2;
                     const dd = Math.floor(Math.random() * 5) + 1;
                     d = Math.floor(Math.random() * 11) - 5;
                     coef = (a + b * dd) - d;
-                    e = coef * x0 + b * (-7);
-                    left = `${a === -1 ? '-' : a}x ${b > 0 ? '+' : '-'} ${Math.abs(b)}(-7 + ${dd}x)`;
+                    e = coef * x0 + b * FIXED_CONST;
+                    left = `${a === -1 ? '-' : a}x ${b > 0 ? '+' : '-'} ${Math.abs(b)}(${FIXED_CONST} + ${dd}x)`;
                 } else if (type === 4) {
                     const a = Math.floor(Math.random() * 7) + 2;
                     const b = Math.floor(Math.random() * 4) + 2;
@@ -334,14 +478,13 @@
 
                 return { equation: eq, correctInterval: correct, options: buildDistractors(correct, pool, tricky) };
             }
-            return generateEasy();
+            return generateMedium();
         }
 
-        let easyCounter = 0;
         return {
-            next() {
-                if (easyCounter < 2) { easyCounter++; return generateEasy(); }
-                easyCounter = 0;
+            next(score) {
+                if (score < 20) return generateEasy();
+                if (score < 30) return generateMedium();
                 return generateHard();
             }
         };
@@ -355,19 +498,19 @@
     const GameUI = (function() {
         const els = {
             scoreDisplay: document.getElementById('scoreValue'),
+            solvedDisplay: document.getElementById('solvedValue'),
+            totalDisplay: document.getElementById('totalValue'),
             inequality: document.getElementById('inequalityDisplay'),
             cardsContainer: document.getElementById('cardsContainer'),
             answerZone: document.getElementById('answerZone'),
             answerPlaceholder: document.getElementById('answerPlaceholder'),
             messageArea: document.getElementById('messageArea'),
             checkBtn: document.getElementById('checkBtn'),
+            levelIndicator: document.getElementById('levelIndicator'),
         };
 
         return {
             els,
-            getAnswerZoneRect() {
-                return els.answerZone.getBoundingClientRect();
-            },
             isPointInAnswerZone(x, y) {
                 const r = els.answerZone.getBoundingClientRect();
                 return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
@@ -377,6 +520,19 @@
             },
             setScore(n) {
                 els.scoreDisplay.textContent = n;
+            },
+            setStats(solved, total) {
+                els.solvedDisplay.textContent = solved;
+                els.totalDisplay.textContent = total;
+            },
+            setLevel(score) {
+                let level = 'Легкий';
+                if (score >= 30) level = 'Сложный';
+                else if (score >= 20) level = 'Средний';
+                els.levelIndicator.textContent = 'Уровень: ';
+                const span = document.createElement('span');
+                span.textContent = level;
+                els.levelIndicator.appendChild(span);
             },
             renderEquation(eqStr) {
                 els.inequality.innerHTML = '';
@@ -418,15 +574,29 @@
                 els.checkBtn.disabled = disabled;
             },
             disableAllCards() {
-                document.querySelectorAll('.card').forEach(c => c.classList.add('disabled'));
+                const cards = [
+                    ...els.cardsContainer.querySelectorAll('.card'),
+                    ...els.answerZone.querySelectorAll('.card')
+                ];
+                cards.forEach(c => c.classList.add('disabled'));
             },
             highlightCorrect(correct) {
-                document.querySelectorAll('.card').forEach(c => {
+                const cards = [
+                    ...els.cardsContainer.querySelectorAll('.card'),
+                    ...els.answerZone.querySelectorAll('.card')
+                ];
+                cards.forEach(c => {
                     if (c.dataset.value === correct) c.classList.add('correct-highlight');
                 });
             },
             highlightWrong(card) {
                 if (card) card.classList.add('wrong-highlight');
+            },
+            appendToAnswerZone(card) {
+                els.answerZone.appendChild(card);
+            },
+            appendToPool(card) {
+                els.cardsContainer.appendChild(card);
             }
         };
     })();
@@ -440,7 +610,7 @@
         let ui = null;
         let callbacks = null;
         let dragState = null;
-        let suppressNextClick = false;
+        let suppressClickForCard = null; // Привязка к конкретной карточке
 
         function onPointerDown(e) {
             const card = e.currentTarget;
@@ -495,7 +665,7 @@
             const droppedInZone = ui.isPointInAnswerZone(e.clientX, e.clientY);
             endDrag();
             if (moved) {
-                suppressNextClick = true;
+                suppressClickForCard = card; // Запоминаем, для какой карточки подавить клик
                 if (droppedInZone) callbacks.onDropInZone(card);
                 else callbacks.onDropOutside(card);
             }
@@ -509,7 +679,10 @@
         }
 
         function onClick(e) {
-            if (suppressNextClick) { suppressNextClick = false; return; }
+            if (suppressClickForCard === e.currentTarget) {
+                suppressClickForCard = null;
+                return;
+            }
             callbacks.onCardClick(e.currentTarget);
         }
 
@@ -523,7 +696,7 @@
                 callbacks = cbs;
             },
             resetSuppress() {
-                suppressNextClick = false;
+                suppressClickForCard = null;
             },
             getHandlers() {
                 return { onPointerDown, onClick, onKeyDown };
@@ -542,8 +715,17 @@
         let placedCardValue = null;
         let selectedCardEl = null;
         let score = 0;
+        let solvedCount = 0;
+        let totalCount = 0;
+        let attempts = 0;
         let answered = false;
         let resetTimeoutId = null;
+
+        function updateStatsUI() {
+            ui.setScore(score);
+            ui.setStats(solvedCount, totalCount);
+            ui.setLevel(score);
+        }
 
         function placeCardInZone(card) {
             if (answered) return;
@@ -551,7 +733,7 @@
             card.classList.remove('correct-highlight', 'wrong-highlight', 'disabled', 'selected');
             card.classList.add('placed');
             if (card.parentElement) card.parentElement.removeChild(card);
-            ui.els.answerZone.appendChild(card);
+            ui.appendToAnswerZone(card);
             placedCardEl = card;
             placedCardValue = card.dataset.value;
             if (selectedCardEl && selectedCardEl !== card) selectedCardEl.classList.remove('selected');
@@ -562,7 +744,7 @@
 
         function returnCardToPool(card) {
             card.classList.remove('placed', 'correct-highlight', 'wrong-highlight', 'disabled', 'selected');
-            ui.els.cardsContainer.appendChild(card);
+            ui.appendToPool(card);
             if (placedCardEl === card) { placedCardEl = null; placedCardValue = null; }
             ui.updatePlaceholder(false);
         }
@@ -592,40 +774,69 @@
             if (answered) { ui.setMessage('<span class="feedback-error">Вы уже ответили. Нажмите «Новое задание».</span>'); return; }
             if (!placedCardEl) { ui.setMessage('<span class="feedback-error">Сначала перетащите карточку.</span>'); return; }
             
+            attempts++;
             const isCorrect = placedCardValue === currentTask.correctInterval;
             
             if (isCorrect) {
                 answered = true;
-                score++;
-                ui.setScore(score);
+                let points = 0;
+                if (attempts === 1) points = 2;
+                else if (attempts === 2) points = 1;
+
+                score += points;
+                solvedCount++;
+                totalCount++;
+                updateStatsUI();
+                
                 ui.setCheckDisabled(true);
                 ui.disableAllCards();
                 ui.highlightCorrect(currentTask.correctInterval);
-                ui.setMessage('<span class="feedback-success">Верно!</span>');
+                
+                let msg = '<span class="feedback-success">Верно!';
+                if (points > 0) msg += ` +${points} очк.`;
+                msg += '</span>';
+                ui.setMessage(msg);
             } else {
-                ui.setMessage('<span class="feedback-error">Неверно. Попробуйте ещё раз.</span>');
+                ui.setMessage(`<span class="feedback-error">Неверно. Попытка ${attempts}. Попробуйте ещё раз.</span>`);
                 returnCardToPool(placedCardEl);
             }
         }
 
+        // Создаёт новое задание (без учёта статистики пропуска)
         function newTask() {
+            if (resetTimeoutId) { clearTimeout(resetTimeoutId); resetTimeoutId = null; }
             ui.clearAnswerZone();
             placedCardEl = null; placedCardValue = null; selectedCardEl = null;
             dnd.resetSuppress();
-            currentTask = gen.next();
+            attempts = 0;
+            answered = false;
+            currentTask = gen.next(score);
             ui.renderEquation(currentTask.equation);
             ui.renderCards(currentTask.options, dnd.getHandlers());
-            answered = false;
             ui.setCheckDisabled(false);
             ui.setMessage('');
         }
 
+        // Пропуск задания: увеличивает «Всего» и создаёт новое
+        function skipCurrentTask() {
+            if (!answered && currentTask !== null) {
+                totalCount++;
+                updateStatsUI();
+            }
+            newTask();
+        }
+
         function resetScore() {
             score = 0;
-            ui.setScore(0);
+            solvedCount = 0;
+            totalCount = 0;
+            attempts = 0;
+            answered = false;
+            updateStatsUI();
             if (resetTimeoutId) clearTimeout(resetTimeoutId);
             ui.setMessage('<span style="opacity:0.7;">Счёт сброшен.</span>');
             resetTimeoutId = setTimeout(() => { ui.setMessage(''); resetTimeoutId = null; }, 1500);
+            newTask(); // newTask не увеличивает totalCount
         }
 
         function init() {
@@ -637,7 +848,7 @@
             });
 
             document.getElementById('checkBtn').addEventListener('click', checkAnswer);
-            document.getElementById('newTaskBtn').addEventListener('click', newTask);
+            document.getElementById('newTaskBtn').addEventListener('click', skipCurrentTask);
             document.getElementById('resetScoreBtn').addEventListener('click', resetScore);
 
             ui.els.answerZone.addEventListener('click', (e) => {
