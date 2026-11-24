@@ -95,17 +95,26 @@
             background: #5a6268;
         }
         
-        /* Кнопка "На главную" */
+        /* Кнопка "На главную" в самом левом верхнем углу экрана */
         .back-btn {
-            background: #17a2b8;
-            margin-bottom: 15px;
+            position: fixed; /* Фиксируем относительно окна браузера */
+            top: 15px;
+            left: 15px;
+            background: #ffffff; /* Белая */
+            color: #333;
+            border: 2px solid #ccc;
+            text-decoration: none;
             font-size: 14px;
-            padding: 8px 15px;
-            width: auto;
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background 0.2s, transform 0.1s;
+            z-index: 1000; /* Чтобы всегда была поверх всего */
             display: inline-block;
         }
         .back-btn:hover {
-            background: #138496;
+            background: #f0f0f0;
+            transform: scale(1.05);
         }
 
         /* Панель истории */
@@ -174,8 +183,10 @@
     </style>
 </head>
 <body>
+    <!-- Кнопка перенесена в начало body, чтобы фиксироваться относительно экрана -->
+    <a href="index.html" class="back-btn">← На главную</a>
+
     <div class="container">
-        <a href="index.html" class="back-btn">← На главную</a>
         <h1>Реши линейное уравнение</h1>
         <div class="equation" id="equation">...</div>
         <div class="hint">Введи значение <b>x</b></div>
@@ -201,7 +212,6 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        // Функция форматирования для красивой записи уравнения
         function formatTerm(coef, variable, isFirst) {
             if (coef === 0) return "";
             let sign = "";
@@ -217,12 +227,11 @@
         }
 
         function generateEquation() {
-            let type = Math.random() < 0.5 ? 1 : 2; // 1: ax + b = c, 2: ax + b = cx + d
+            let type = Math.random() < 0.5 ? 1 : 2;
             let a, b, c, d, x;
 
             if (type === 1) {
-                // ax + b = c
-                a = randInt(1, 10) * (Math.random() < 0.3 ? -1 : 1); // иногда с минусом
+                a = randInt(1, 10) * (Math.random() < 0.3 ? -1 : 1);
                 if (a === 0) a = 5; 
                 x = randInt(-20, 20);
                 b = randInt(-20, 20);
@@ -233,16 +242,11 @@
                 currentAnswer = x;
 
             } else {
-                // ax + b = cx + d
                 a = randInt(2, 10);
-                c = randInt(1, 9); // c < a, чтобы (a-c) != 0
+                c = randInt(1, 9);
                 if (a === c) c = a - 1;
                 
-                // Чтобы корень был целым, подбираем x
                 x = randInt(-10, 10);
-                
-                // d = (a-c)*x + b => (a-c)*x + b - d = 0
-                // Пусть b и d будут случайными, но вычислим d так, чтобы x подошел
                 b = randInt(-20, 20);
                 d = (a - c) * x + b;
 
@@ -292,7 +296,6 @@
             if (e.key === 'Enter') checkAnswer();
         });
 
-        // Первое уравнение при загрузке
         generateEquation();
     </script>
 </body>
