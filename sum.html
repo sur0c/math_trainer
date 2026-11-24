@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перетаскиваемые квадраты с ручной сортировкой</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .drop-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 600px;
+            width: max-content;
+            max-width: calc(100vw - 40px);
+            height: 200px;
+            border: 2px dashed #999;
+            border-radius: 12px;
+            background-color: rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .drop-zone.active {
+            border-color: #4a90e2;
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        .drop-zone .placeholder {
+            color: #999;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .square {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: white;
+            border: 1px solid black;
+            box-sizing: border-box;
+            cursor: grab;
+            user-select: none;
+            border-radius: 4px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-size: 36px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+        }
+
+        .square.dragging {
+            cursor: grabbing;
+            z-index: 1000;
+            outline: 2px solid #4a90e2;
+            outline-offset: 2px;
+        }
+
+        .square.docked {
+            position: static;
+            outline: none;
+        }
+
+        .drop-indicator {
+            width: 4px;
+            height: 80px;
+            background-color: #4a90e2;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .calc-button {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-300px, -50%);
+            margin-top: -170px;
+            background-color: #b0b0b0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s;
+        }
+
+        .calc-button:hover {
+            background-color: #999;
+        }
+
+        .calc-button:active {
+            background-color: #808080;
+        }
+
+        .calc-result {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, 0);
+            margin-top: 120px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            font-family: Arial, sans-serif;
+            white-space: nowrap;
+            min-height: 34px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="drop-zone" id="dropZone">
+            <span class="placeholder" id="placeholder">Перетащите квадраты сюда</span>
+        </div>
+        <button class="calc-button" id="calcButton">Посчитать</button>
+        <div class="calc-result" id="calcResult"></div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const dropZone = document.getElementById('dropZone');
+        const placeholder = document.getElementById('placeholder');
+        const calcButton = document.getElementById('calcButton');
+        const calcResult = document.getElementById('calcResult');
+
+        let dropIndicator = null;
+
+        const labels = ['1', '2', '3', '4', '5', '+', '−'];
+
+        labels.forEach((label) => {
+            const square = document.createElement('div');
+            square.className = 'square';
+            square.dataset.label = label;
+            square.textContent = label;
+
+            const maxX = window.innerWidth - 120;
+            const maxY = window.innerHeight - 120;
+            square.style.left = Math.random() * maxX + 'px';
+            square.style.top = Math.random() * maxY + 'px';
+
+            makeDraggable(square);
+            container.appendChild(square);
+        });
+
+        calcButton.addEventListener('click', () => {
+            const docked = [...dropZone.querySelectorAll('.square.docked')];
+            if (docked.length === 0) {
+                calcResult.textContent = 'Зона пуста';
+                calcResult.style.color = '#999';
+                return;
+            }
+
+            const tokens = docked.map(el => el.dataset.label);
+            const expression = tokens.join(' ');
+
+            try {
+                const { display, value } = evaluate(tokens);
+                calcResult.textContent = `${display} = ${value}`;
+                calcResult.style.color = '#333';
+            } catch (err) {
+                calcResult.textContent = 'Ошибка в выражении';
+                calcResult.style.color = '#c0392b';
+            }
+        });
+
+        // Вычисление: соседние цифры без знака между ними склеиваются в одно число.
+        // Например: ['1','2','+','3'] -> "12 + 3" = 15
+        function evaluate(tokens) {
+            // Нормализуем знак минуса
+            const norm = tokens.map(t => t === '−' ? '-' : t);
+
+            // 1. Склеиваем подряд идущие цифры в числа
+            const merged = [];
+            for (const t of norm) {
+                const isDigit = /^\d+$/.test(t);
+                const prev = merged[merged.length - 1];
+                const prevIsDigit = prev !== undefined && /^\d+$/.test(prev);
+
+                if (isDigit && prevIsDigit) {
+                    // Склеиваем: "1" + "2" -> "12"
+                    merged[merged.length - 1] = prev + t;
+                } else {
+                    merged.push(t);
+                }
+            }
+
+            // 2. Теперь считаем как последовательность чисел и +/-
+            if (merged.length === 0) throw new Error('empty');
+
+            let result = null;
+            let op = '+';
+            let i = 0;
+
+            // Унарный минус в начале
+            if (merged[0] === '-') {
+                op = '-';
+                i = 1;
+            }
+
+            for (; i < merged.length; i++) {
+                const t = merged[i];
+                if (t === '+' || t === '-') {
+                    op = t;
+                } else if (/^\d+$/.test(t)) {
+                    const num = parseInt(t, 10);
+                    if (result === null) {
+                        result = (op === '-') ? -num : num;
+                    } else {
+                        result = (op === '+') ? result + num : result - num;
+                    }
+                    op = '+';
+                } else {
+                    throw new Error('bad token');
+                }
+            }
+            if (result === null) throw new Error('no numbers');
+
+            // Отображаем "склеенное" выражение с пробелами вокруг операторов
+            const display = merged.reduce((acc, t, idx) => {
+                if (idx === 0) return t;
+                if (t === '+' || t === '-') return acc + ' ' + t;
+                return acc + ' ' + t;
+            }, '');
+
+            return { display, value: result };
+        }
+
+        function isOverDropZone(el) {
+            const rect = el.getBoundingClientRect();
+            const zoneRect = dropZone.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            return cx >= zoneRect.left && cx <= zoneRect.right &&
+                   cy >= zoneRect.top && cy <= zoneRect.bottom;
+        }
+
+        function updateDockState() {
+            const docked = dropZone.querySelectorAll('.square.docked');
+            placeholder.style.display = docked.length > 0 ? 'none' : 'inline';
+        }
+
+        function getInsertBefore(cursorX) {
+            const docked = [...dropZone.querySelectorAll('.square.docked')];
+            for (const el of docked) {
+                const rect = el.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                if (cursorX < midX) return el;
+            }
+            return null;
+        }
+
+        function showIndicator(beforeEl) {
+            if (!dropIndicator) {
+                dropIndicator = document.createElement('div');
+                dropIndicator.className = 'drop-indicator';
+            }
+            if (beforeEl) {
+                dropZone.insertBefore(dropIndicator, beforeEl);
+            } else {
+                dropZone.appendChild(dropIndicator);
+            }
+        }
+
+        function hideIndicator() {
+            if (dropIndicator && dropIndicator.parentNode) {
+                dropIndicator.parentNode.removeChild(dropIndicator);
+            }
+        }
+
+        function dockSquare(el, cursorX) {
+            const rect = el.getBoundingClientRect();
+            const insertBefore = getInsertBefore(cursorX);
+
+            el.classList.add('docked');
+            el.classList.remove('dragging');
+            el.style.left = '';
+            el.style.top = '';
+            el.style.position = '';
+            el.style.cursor = 'grab';
+
+            hideIndicator();
+
+            if (insertBefore) {
+                dropZone.insertBefore(el, insertBefore);
+            } else {
+                dropZone.appendChild(el);
+            }
+
+            updateDockState();
+
+            const newRect = el.getBoundingClientRect();
+            const dx = rect.left - newRect.left;
+            const dy = rect.top - newRect.top;
+
+            if (dx || dy) {
+                el.style.transition = 'none';
+                el.style.transform = `translate(${dx}px, ${dy}px)`;
+                requestAnimationFrame(() => {
+                    el.style.transition = 'transform 0.2s ease';
+                    el.style.transform = '';
+                    el.addEventListener('transitionend', () => {
+                        el.style.transition = '';
+                    }, { once: true });
+                });
+            }
+        }
+
+        function detachFromDock(el) {
+            if (!el.classList.contains('docked')) return null;
+
+            const rect = el.getBoundingClientRect();
+
+            el.classList.remove('docked');
+            el.style.position = 'absolute';
+            el.style.left = rect.left + 'px';
+            el.style.top = rect.top + 'px';
+            el.style.transform = '';
+            el.style.transition = 'none';
+            container.appendChild(el);
+
+            updateDockState();
+
+            requestAnimationFrame(() => {
+                el.style.transition = '';
+            });
+
+            return rect;
+        }
+
+        function makeDraggable(element) {
+            let offsetX = 0;
+            let offsetY = 0;
+            let isDragging = false;
+
+            element.addEventListener('mousedown', (e) => {
+                let rect;
+
+                if (element.classList.contains('docked')) {
+                    rect = detachFromDock(element);
+                } else {
+                    rect = element.getBoundingClientRect();
+                }
+
+                isDragging = true;
+                element.classList.add('dragging');
+
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                let newLeft = e.clientX - offsetX;
+                let newTop = e.clientY - offsetY;
+
+                const maxLeft = window.innerWidth - element.offsetWidth;
+                const maxTop = window.innerHeight - element.offsetHeight;
+
+                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                newTop = Math.max(0, Math.min(newTop, maxTop));
+
+                element.style.left = newLeft + 'px';
+                element.style.top = newTop + 'px';
+
+                if (isOverDropZone(element)) {
+                    dropZone.classList.add('active');
+                    showIndicator(getInsertBefore(e.clientX));
+                } else {
+                    dropZone.classList.remove('active');
+                    hideIndicator();
+                }
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                element.classList.remove('dragging');
+                dropZone.classList.remove('active');
+                hideIndicator();
+
+                if (isOverDropZone(element)) {
+                    dockSquare(element, e.clientX);
+                }
+            });
+
+            element.addEventListener('touchstart', (e) => {
+                let rect;
+
+                if (element.classList.contains('docked')) {
+                    rect = detachFromDock(element);
+                } else {
+                    rect = element.getBoundingClientRect();
+                }
+
+                isDragging = true;
+                element.classList.add('dragging');
+
+                const touch = e.touches[0];
+                offsetX = touch.clientX - rect.left;
+                offsetY = touch.clientY - rect.top;
+
+                e.preventDefault();
+            }, { passive: false });
+
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+
+                const touch = e.touches[0];
+                let newLeft = touch.clientX - offsetX;
+                let newTop = touch.clientY - offsetY;
+
+                const maxLeft = window.innerWidth - element.offsetWidth;
+                const maxTop = window.innerHeight - element.offsetHeight;
+
+                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                newTop = Math.max(0, Math.min(newTop, maxTop));
+
+                element.style.left = newLeft + 'px';
+                element.style.top = newTop + 'px';
+
+                if (isOverDropZone(element)) {
+                    dropZone.classList.add('active');
+                    showIndicator(getInsertBefore(touch.clientX));
+                } else {
+                    dropZone.classList.remove('active');
+                    hideIndicator();
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            document.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                element.classList.remove('dragging');
+                dropZone.classList.remove('active');
+                hideIndicator();
+
+                if (isOverDropZone(element)) {
+                    const touch = e.changedTouches[0];
+                    dockSquare(element, touch.clientX);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
