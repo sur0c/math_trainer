@@ -28,7 +28,9 @@
             pointer-events: none;
         }
         .stage > * { pointer-events: auto; }
-        .calc-row { display: flex; justify-content: flex-start; padding-left: 0; }
+        .controls {
+            display: flex; gap: 8px; justify-content: flex-start; flex-wrap: wrap;
+        }
         .calc-button {
             background-color: #b0b0b0; color: white; border: none;
             border-radius: 8px; padding: 10px 20px; font-size: 16px;
@@ -38,6 +40,9 @@
         }
         .calc-button:hover { background-color: #999; }
         .calc-button:active { background-color: #808080; }
+        .calc-button.secondary { background-color: #d0d0d0; color: #333; }
+        .calc-button.secondary:hover { background-color: #c0c0c0; }
+        .calc-button.secondary:active { background-color: #b0b0b0; }
         .drop-zone {
             min-width: 600px; width: max-content; max-width: 100%;
             height: 200px; border: 2px dashed #999; border-radius: 12px;
@@ -53,10 +58,12 @@
         .drop-zone .placeholder { color: #999; font-size: 14px; user-select: none; }
         .calc-result {
             font-size: 28px; font-weight: bold; color: #333;
-            font-family: Arial, sans-serif; white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis;
+            font-family: Arial, sans-serif;
             min-height: 34px; text-align: center;
+            word-break: break-word;
         }
+        .calc-result.error { color: #c0392b; }
+        .calc-result.muted { color: #999; }
         .square {
             width: 80px; height: 80px;
             background-color: white; border: 1px solid black;
@@ -66,26 +73,24 @@
             color: black; font-size: 36px; font-weight: bold;
             font-family: Arial, sans-serif;
         }
+        .square.var { font-style: italic; }
+        .square:focus-visible { outline: 3px solid #4a90e2; outline-offset: 2px; }
         .square.floating { position: absolute; z-index: 500; }
         .square.dragging {
             cursor: grabbing; z-index: 1000;
             outline: 2px solid #4a90e2; outline-offset: 2px;
         }
         .square.docked { position: static; outline: none; }
+        .square.kbd-active { outline: 3px solid #4a90e2; outline-offset: 2px; z-index: 600; }
         .drop-indicator {
             width: 4px; height: 80px; background-color: #4a90e2;
             border-radius: 2px; flex-shrink: 0;
         }
         .version {
-            position: fixed;
-            right: 10px;
-            bottom: 10px;
-            font-size: 12px;
-            color: #888;
+            position: fixed; right: 10px; bottom: 10px;
+            font-size: 12px; color: #888;
             font-family: Arial, sans-serif;
-            user-select: none;
-            pointer-events: none;
-            z-index: 2000;
+            user-select: none; pointer-events: none; z-index: 2000;
         }
         @media (max-width: 700px) {
             .tray { top: 6px; gap: 4px; }
@@ -95,9 +100,9 @@
                 flex-wrap: wrap; gap: 8px; padding: 12px; align-content: center;
             }
             .stage { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
-            .calc-row { justify-content: center; }
+            .controls { justify-content: center; }
             .calc-button { font-size: 15px; padding: 9px 16px; }
-            .calc-result { font-size: 20px; min-height: 26px; white-space: normal; }
+            .calc-result { font-size: 20px; min-height: 26px; }
             .drop-indicator { height: 56px; width: 3px; }
             .version { font-size: 11px; right: 6px; bottom: 6px; }
         }
@@ -110,79 +115,139 @@
 </head>
 <body>
     <div class="container" id="container">
-        <div class="tray" id="tray"></div>
+        <div class="tray" id="tray" role="toolbar" aria-label="Доступные квадраты"></div>
         <div class="stage">
-            <div class="calc-row">
+            <div class="controls">
                 <button class="calc-button" id="calcButton">Посчитать</button>
+                <button class="calc-button secondary" id="clearButton">Очистить</button>
+                <button class="calc-button secondary" id="resetButton">Вернуть всё в трей</button>
             </div>
-            <div class="drop-zone" id="dropZone">
+            <div class="drop-zone" id="dropZone" role="region" aria-label="Зона выражения">
                 <span class="placeholder" id="placeholder">Перетащите квадраты сюда</span>
             </div>
-            <div class="calc-result" id="calcResult"></div>
+            <div class="calc-result" id="calcResult" role="status" aria-live="polite"></div>
         </div>
-        <div class="version" id="version">версия 1.0</div>
+        <div class="version" id="version"></div>
     </div>
 
     <script>
+        const VERSION = '1.2';
+        document.getElementById('version').textContent = 'версия ' + VERSION;
+
         const container = document.getElementById('container');
         const tray = document.getElementById('tray');
         const dropZone = document.getElementById('dropZone');
         const placeholder = document.getElementById('placeholder');
         const calcButton = document.getElementById('calcButton');
+        const clearButton = document.getElementById('clearButton');
+        const resetButton = document.getElementById('resetButton');
         const calcResult = document.getElementById('calcResult');
-        const versionEl = document.getElementById('version');
-
-        // Версия приложения. При каждом обновлении файла увеличиваем на 0.1.
-        const VERSION = '1.0';
-        versionEl.textContent = 'версия ' + VERSION;
 
         let dropIndicator = null;
+        let activeDrag = null;
+        let rafPending = false;
+        let lastPointer = { x: 0, y: 0 };
+        let kbdEl = null; // элемент, которым управляют с клавиатуры
 
-        const labels = ['1', '2', '3', '4', '5', '+', '−', '·', 'x', '<', '='];
+        const labels = ['1', '2', '3', '4', '5', '+', '−', '·', '/', 'x', '<', '='];
 
         labels.forEach((label) => {
             const square = document.createElement('div');
-            square.className = 'square';
+            square.className = 'square' + (label === 'x' ? ' var' : '');
             square.dataset.label = label;
             square.textContent = label;
-            makeDraggable(square);
+            square.setAttribute('role', 'button');
+            square.setAttribute('tabindex', '0');
+            square.setAttribute('aria-label', ariaLabelFor(label));
             tray.appendChild(square);
         });
 
+        function ariaLabelFor(label) {
+            switch (label) {
+                case '+': return 'плюс';
+                case '−': return 'минус';
+                case '·': return 'умножить';
+                case '/': return 'разделить';
+                case 'x': return 'икс';
+                case '<': return 'меньше';
+                case '=': return 'равно';
+                default: return 'число ' + label;
+            }
+        }
+
+        // ===== Кнопки =====
         calcButton.addEventListener('click', () => {
             const docked = [...dropZone.querySelectorAll('.square.docked')];
             if (docked.length === 0) {
-                calcResult.textContent = 'Зона пуста';
-                calcResult.style.color = '#999';
+                setResult('Зона пуста', 'muted');
                 return;
             }
-
             const tokens = docked.map(el => el.dataset.label);
-
             try {
                 const { display, value } = evaluate(tokens);
+                calcResult.classList.remove('error', 'muted');
                 calcResult.textContent = value === undefined ? display : `${display} = ${value}`;
-                calcResult.style.color = '#333';
             } catch (err) {
+                setResult(err.message || 'Ошибка в выражении', 'error');
                 console.error('EVAL ERROR:', err);
-                calcResult.textContent = 'Ошибка в выражении';
-                calcResult.style.color = '#c0392b';
             }
         });
 
+        // ФИКС 1: rect берём ДО appendChild, как в startDrag
+        clearButton.addEventListener('click', () => {
+            const docked = [...dropZone.querySelectorAll('.square.docked')];
+            for (const el of docked) {
+                const r = el.getBoundingClientRect();       // ДО
+                el.classList.remove('docked');
+                el.classList.add('floating');
+                el.style.left = r.left + 'px';
+                el.style.top = r.top + 'px';
+                el.style.width = r.width + 'px';
+                el.style.height = r.height + 'px';
+                container.appendChild(el);                 // ПОСЛЕ
+            }
+            updateDockState();
+            setResult('', '');
+        });
+
+        // ФИКС 4: сбрасываем transform/transition
+        resetButton.addEventListener('click', () => {
+            document.querySelectorAll('.square').forEach(el => {
+                el.classList.remove('docked', 'floating', 'dragging', 'kbd-active');
+                el.style.left = '';
+                el.style.top = '';
+                el.style.width = '';
+                el.style.height = '';
+                el.style.position = '';
+                el.style.transform = '';
+                el.style.transition = '';
+                tray.appendChild(el);
+            });
+            kbdEl = null;
+            updateDockState();
+            setResult('', '');
+        });
+
+        function setResult(text, cls) {
+            calcResult.textContent = text;
+            calcResult.classList.remove('error', 'muted');
+            if (cls) calcResult.classList.add(cls);
+        }
+
+        // ===== Нормализация =====
         function normalizeToken(t) {
             if (t === '−' || t === '–' || t === '—' || t === '-') return '-';
             if (t === '·' || t === '•' || t === '⋅' || t === '*' || t === '×') return '*';
+            if (t === '/') return '/';
             if (t === 'x' || t === 'х' || t === '𝑥' || t === 'X') return 'x';
             if (t === '<' || t === '＜' || t === '‹') return '<';
             if (t === '=' || t === '＝') return '=';
             return t;
         }
 
-        function evaluate(tokens) {
+        // ===== Токенизация =====
+        function tokenize(tokens) {
             const norm = tokens.map(normalizeToken);
-
-            // 1. Склейка цифр + неявное умножение числа и x
             const merged = [];
             for (const t of norm) {
                 const isDigit = /^\d+$/.test(t);
@@ -205,9 +270,6 @@
                 }
             }
 
-            if (merged.length === 0) throw new Error('empty');
-
-            // 2. Разворачиваем "5*x" обратно в токены, НЕ трогая одиночный '*'
             const flat = [];
             for (const t of merged) {
                 if (typeof t === 'string' && t.length > 1 && t.includes('*')) {
@@ -220,116 +282,155 @@
                     flat.push(t);
                 }
             }
-
-            const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ');
-            const hasX = flat.includes('x');
-
-            // 3. Равенство
-            const eqIndex = flat.indexOf('=');
-            if (eqIndex !== -1) {
-                if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('multiple =');
-                const left = flat.slice(0, eqIndex);
-                const right = flat.slice(eqIndex + 1);
-                if (left.length === 0 || right.length === 0) throw new Error('bad =');
-
-                if (!hasX) {
-                    const leftVal = evalArithmetic(left);
-                    const rightVal = evalArithmetic(right);
-                    return { display: pretty, value: (leftVal === rightVal) ? 'верно' : 'неверно' };
-                }
-
-                const { a, b } = toLinear(left, right);
-                return { display: pretty, value: solveEquation(a, b) };
-            }
-
-            // 4. Неравенство
-            const cmpIndex = flat.indexOf('<');
-            if (cmpIndex !== -1) {
-                if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('multiple <');
-                const left = flat.slice(0, cmpIndex);
-                const right = flat.slice(cmpIndex + 1);
-                if (left.length === 0 || right.length === 0) throw new Error('bad <');
-
-                if (!hasX) {
-                    const leftVal = evalArithmetic(left);
-                    const rightVal = evalArithmetic(right);
-                    return { display: pretty, value: (leftVal < rightVal) ? 'верно' : 'неверно' };
-                }
-
-                const { a, b } = toLinear(left, right);
-                return { display: pretty, value: solveInequality(a, b) };
-            }
-
-            // 5. Без '=' и '<'
-            if (hasX) {
-                const { a, b } = toLinear(flat, []);
-                return { display: pretty, value: solveEquation(a, b) };
-            }
-
-            const value = evalArithmetic(flat);
-            return { display: pretty, value };
+            return flat;
         }
 
-        function toLinear(leftTokens, rightTokens) {
-            const l = linearCoefs(leftTokens);
-            const r = linearCoefs(rightTokens);
-            return { a: l.a - r.a, b: l.b - r.b };
+        // ===== Парсер =====
+        function parseArithmetic(tokens) {
+            let pos = 0;
+            function peek() { return tokens[pos]; }
+            function next() { return tokens[pos++]; }
+
+            function parseExpr() {
+                let val = parseTerm();
+                while (peek() === '+' || peek() === '-') {
+                    const op = next();
+                    const rhs = parseTerm();
+                    val = op === '+' ? val + rhs : val - rhs;
+                }
+                return val;
+            }
+            function parseTerm() {
+                let val = parseFactor();
+                while (peek() === '*' || peek() === '/') {
+                    const op = next();
+                    const rhs = parseFactor();
+                    if (op === '/') {
+                        if (rhs === 0) throw new Error('деление на ноль');
+                        val = val / rhs;
+                    } else {
+                        val = val * rhs;
+                    }
+                }
+                return val;
+            }
+            function parseFactor() {
+                const t = peek();
+                if (t === '-') { next(); return -parseFactor(); }
+                if (t === '+') { next(); return parseFactor(); }
+                if (t === undefined) throw new Error('неполное выражение');
+                if (t === 'x') throw new Error('выражение содержит x — нужен знак = или <');
+                if (/^\d+$/.test(t)) { next(); return parseInt(t, 10); }
+                throw new Error('неполное выражение');
+            }
+
+            if (tokens.length === 0) throw new Error('неполное выражение');
+            const result = parseExpr();
+            if (pos < tokens.length) throw new Error('неполное выражение');
+            return result;
         }
 
         function linearCoefs(tokens) {
-            let i = 0;
-            let sign = 1;
-            const terms = [];
+            let pos = 0;
+            function peek() { return tokens[pos]; }
+            function next() { return tokens[pos++]; }
 
-            while (i < tokens.length && tokens[i] === '-') { sign *= -1; i++; }
-            if (i >= tokens.length) return { a: 0, b: 0 };
-            terms.push(parseLinearTerm(tokens, i, sign));
-            i = terms[terms.length - 1].next;
-
-            while (i < tokens.length) {
-                const op = tokens[i];
-                if (op !== '+' && op !== '-') throw new Error('bad op');
-                i++;
-                let s = 1;
-                while (i < tokens.length && tokens[i] === '-') { s *= -1; i++; }
-                const opSign = (op === '-') ? -1 : 1;
-                const term = parseLinearTerm(tokens, i, s * opSign);
-                terms.push(term);
-                i = term.next;
+            function parseExpr() {
+                let coef = parseTerm();
+                while (peek() === '+' || peek() === '-') {
+                    const op = next();
+                    const rhs = parseTerm();
+                    coef = op === '+'
+                        ? { a: coef.a + rhs.a, b: coef.b + rhs.b }
+                        : { a: coef.a - rhs.a, b: coef.b - rhs.b };
+                }
+                return coef;
+            }
+            function parseTerm() {
+                let coef = parseFactor();
+                while (peek() === '*' || peek() === '/') {
+                    const op = next();
+                    const rhs = parseFactor();
+                    if (op === '/') {
+                        if (rhs.a !== 0) throw new Error('деление на x не поддерживается');
+                        if (rhs.b === 0) throw new Error('деление на ноль');
+                        coef = { a: coef.a / rhs.b, b: coef.b / rhs.b };
+                    } else {
+                        if (coef.a !== 0 && rhs.a !== 0) throw new Error('x² не поддерживается');
+                        if (coef.a !== 0) {
+                            coef = { a: coef.a * rhs.b, b: coef.b * rhs.b };
+                        } else if (rhs.a !== 0) {
+                            coef = { a: rhs.a * coef.b, b: rhs.b * coef.b };
+                        } else {
+                            coef = { a: 0, b: coef.b * rhs.b };
+                        }
+                    }
+                }
+                return coef;
+            }
+            function parseFactor() {
+                const t = peek();
+                if (t === '-') { next(); const f = parseFactor(); return { a: -f.a, b: -f.b }; }
+                if (t === '+') { next(); return parseFactor(); }
+                if (t === undefined) throw new Error('неполное выражение');
+                if (t === 'x') { next(); return { a: 1, b: 0 }; }
+                if (/^\d+$/.test(t)) { next(); return { a: 0, b: parseInt(t, 10) }; }
+                throw new Error('неполное выражение');
             }
 
-            let a = 0, b = 0;
-            for (const t of terms) { a += t.a; b += t.b; }
-            return { a, b };
+            if (tokens.length === 0) throw new Error('неполное выражение');
+            const result = parseExpr();
+            if (pos < tokens.length) throw new Error('неполное выражение');
+            return result;
         }
 
-        function parseLinearTerm(tokens, start, sign) {
-            let i = start;
-            let coef = 1;
-            let xCount = 0;
-            let hasNumber = false;
+        // ===== Вычислитель =====
+        function evaluate(tokens) {
+            const flat = tokenize(tokens);
+            const pretty = flat.join(' ').replace(/\s*\*\s*/g, ' · ').replace(/\s*\/\s*/g, ' ÷ ');
+            const hasX = flat.includes('x');
 
-            while (i < tokens.length) {
-                const t = tokens[i];
-                if (/^\d+$/.test(t)) {
-                    coef *= parseInt(t, 10);
-                    hasNumber = true;
-                    i++;
-                } else if (t === 'x') {
-                    xCount++;
-                    i++;
-                } else {
-                    break;
+            const eqIndex = flat.indexOf('=');
+            if (eqIndex !== -1) {
+                if (flat.indexOf('=', eqIndex + 1) !== -1) throw new Error('два знака =');
+                const left = flat.slice(0, eqIndex);
+                const right = flat.slice(eqIndex + 1);
+                if (left.length === 0 || right.length === 0) throw new Error('неполное выражение');
+
+                if (!hasX) {
+                    const lv = parseArithmetic(left);
+                    const rv = parseArithmetic(right);
+                    // ФИКС 5: точное сравнение с плавающей точкой
+                    return { display: pretty, value: Math.abs(lv - rv) < 1e-9 ? 'верно' : 'неверно' };
                 }
-                if (i < tokens.length && tokens[i] === '*') { i++; continue; }
-                else break;
+                const L = linearCoefs(left);
+                const R = linearCoefs(right);
+                return { display: pretty, value: solveEquation(L.a - R.a, L.b - R.b) };
             }
 
-            if (!hasNumber && xCount === 0) throw new Error('bad term');
-            if (xCount > 1) throw new Error('x^2 не поддерживается');
+            const cmpIndex = flat.indexOf('<');
+            if (cmpIndex !== -1) {
+                if (flat.indexOf('<', cmpIndex + 1) !== -1) throw new Error('два знака <');
+                const left = flat.slice(0, cmpIndex);
+                const right = flat.slice(cmpIndex + 1);
+                if (left.length === 0 || right.length === 0) throw new Error('неполное выражение');
 
-            if (xCount === 1) return { a: coef * sign, b: 0, next: i };
-            return { a: 0, b: coef * sign, next: i };
+                if (!hasX) {
+                    const lv = parseArithmetic(left);
+                    const rv = parseArithmetic(right);
+                    return { display: pretty, value: lv < rv ? 'верно' : 'неверно' };
+                }
+                const L = linearCoefs(left);
+                const R = linearCoefs(right);
+                return { display: pretty, value: solveInequality(L.a - R.a, L.b - R.b) };
+            }
+
+            if (hasX) {
+                const L = linearCoefs(flat);
+                return { display: pretty, value: solveEquation(L.a, L.b) };
+            }
+            const value = parseArithmetic(flat);
+            return { display: pretty, value: formatNumber(value) };
         }
 
         function solveEquation(a, b) {
@@ -348,54 +449,15 @@
         }
 
         function formatNumber(n) {
+            if (!isFinite(n)) return String(n);
             if (Number.isInteger(n)) return String(n);
             return String(parseFloat(n.toFixed(4)));
         }
 
-        function evalArithmetic(tokens) {
-            if (tokens.length === 0) throw new Error('empty');
-
-            const terms = [];
-            let i = 0;
-            let sign = 1;
-
-            while (i < tokens.length && tokens[i] === '-') { sign *= -1; i++; }
-            if (i >= tokens.length || !/^\d+$/.test(tokens[i])) throw new Error('no number');
-            let current = sign * parseInt(tokens[i], 10);
-            i++;
-
-            while (i < tokens.length) {
-                const op = tokens[i];
-                if (op !== '+' && op !== '-' && op !== '*') throw new Error('bad op');
-                i++;
-
-                let s = 1;
-                while (i < tokens.length && tokens[i] === '-') { s *= -1; i++; }
-                if (i >= tokens.length || !/^\d+$/.test(tokens[i])) throw new Error('no number');
-                const num = s * parseInt(tokens[i], 10);
-                i++;
-
-                if (op === '*') current = current * num;
-                else { terms.push(current); terms.push(op); current = num; }
-            }
-            terms.push(current);
-
-            let result = terms[0];
-            for (let j = 1; j < terms.length; j += 2) {
-                const op = terms[j];
-                const num = terms[j + 1];
-                result = (op === '+') ? result + num : result - num;
-            }
-            return result;
-        }
-
-        function isOverDropZone(el) {
-            const rect = el.getBoundingClientRect();
-            const zoneRect = dropZone.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            return cx >= zoneRect.left && cx <= zoneRect.right &&
-                   cy >= zoneRect.top && cy <= zoneRect.bottom;
+        // ===== Геометрия =====
+        function pointInDropZone(x, y) {
+            const zr = dropZone.getBoundingClientRect();
+            return x >= zr.left && x <= zr.right && y >= zr.top && y <= zr.bottom;
         }
 
         function updateDockState() {
@@ -407,8 +469,7 @@
             const docked = [...dropZone.querySelectorAll('.square.docked')];
             for (const el of docked) {
                 const rect = el.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                if (cursorX < midX) return el;
+                if (cursorX < rect.left + rect.width / 2) return el;
             }
             return null;
         }
@@ -428,15 +489,89 @@
             }
         }
 
-        function makeFloating(el) {
-            const rect = el.getBoundingClientRect();
-            el.classList.add('floating');
-            el.style.left = rect.left + 'px';
-            el.style.top = rect.top + 'px';
-            el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
-            container.appendChild(el);
-            return rect;
+        // ===== Перетаскивание =====
+        function startDrag(el, clientX, clientY) {
+            let rect;
+            if (el.classList.contains('docked')) {
+                rect = el.getBoundingClientRect();
+                el.classList.remove('docked');
+                container.appendChild(el);
+                el.classList.add('floating');
+                el.style.left = rect.left + 'px';
+                el.style.top = rect.top + 'px';
+                el.style.width = rect.width + 'px';
+                el.style.height = rect.height + 'px';
+                updateDockState();
+            } else if (el.parentElement !== container) {
+                rect = el.getBoundingClientRect();
+                el.classList.add('floating');
+                el.style.left = rect.left + 'px';
+                el.style.top = rect.top + 'px';
+                el.style.width = rect.width + 'px';
+                el.style.height = rect.height + 'px';
+                container.appendChild(el);
+            } else {
+                rect = el.getBoundingClientRect();
+            }
+
+            el.classList.add('dragging');
+            kbdEl = null;
+            activeDrag = {
+                el,
+                offsetX: clientX - rect.left,
+                offsetY: clientY - rect.top,
+                moved: false
+            };
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!activeDrag) return;
+            const el = activeDrag.el;
+            activeDrag.moved = true;
+
+            let left = clientX - activeDrag.offsetX;
+            let top = clientY - activeDrag.offsetY;
+            const maxLeft = window.innerWidth - el.offsetWidth;
+            const maxTop = window.innerHeight - el.offsetHeight;
+            left = Math.max(0, Math.min(left, maxLeft));
+            top = Math.max(0, Math.min(top, maxTop));
+
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+
+            lastPointer = { x: clientX, y: clientY };
+            if (!rafPending) {
+                rafPending = true;
+                requestAnimationFrame(() => {
+                    rafPending = false;
+                    updateDropHints(lastPointer.x, lastPointer.y);
+                });
+            }
+        }
+
+        function updateDropHints(x, y) {
+            if (!activeDrag) return;
+            if (pointInDropZone(x, y)) {
+                dropZone.classList.add('active');
+                showIndicator(getInsertBefore(x));
+            } else {
+                dropZone.classList.remove('active');
+                hideIndicator();
+            }
+        }
+
+        function endDrag() {
+            if (!activeDrag) return;
+            const el = activeDrag.el;
+            const { x, y } = lastPointer;
+            el.classList.remove('dragging');
+            dropZone.classList.remove('active');
+            hideIndicator();
+
+            if (activeDrag.moved && pointInDropZone(x, y)) {
+                dockSquare(el, x);
+            }
+            activeDrag = null;
         }
 
         function dockSquare(el, cursorX) {
@@ -444,16 +579,13 @@
             const insertBefore = getInsertBefore(cursorX);
 
             el.classList.add('docked');
-            el.classList.remove('dragging');
-            el.classList.remove('floating');
+            el.classList.remove('floating', 'kbd-active');
             el.style.left = '';
             el.style.top = '';
             el.style.width = '';
             el.style.height = '';
             el.style.position = '';
             el.style.cursor = 'grab';
-
-            hideIndicator();
 
             if (insertBefore) dropZone.insertBefore(el, insertBefore);
             else dropZone.appendChild(el);
@@ -463,7 +595,6 @@
             const newRect = el.getBoundingClientRect();
             const dx = rect.left - newRect.left;
             const dy = rect.top - newRect.top;
-
             if (dx || dy) {
                 el.style.transition = 'none';
                 el.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -477,127 +608,158 @@
             }
         }
 
-        function makeDraggable(element) {
-            let offsetX = 0, offsetY = 0, isDragging = false;
+        // ===== Глобальные слушатели =====
+        function onPointerDown(e) {
+            const el = e.target.closest('.square');
+            if (!el) return;
 
-            element.addEventListener('mousedown', (e) => {
-                let rect;
-                if (element.classList.contains('docked')) {
-                    const r = element.getBoundingClientRect();
-                    element.classList.remove('docked');
-                    container.appendChild(element);
-                    element.classList.add('floating');
-                    element.style.left = r.left + 'px';
-                    element.style.top = r.top + 'px';
-                    rect = r;
-                    updateDockState();
-                } else {
-                    rect = element.getBoundingClientRect();
-                    if (!element.classList.contains('floating')) {
-                        makeFloating(element);
-                    }
-                }
-
-                isDragging = true;
-                element.classList.add('dragging');
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-
-                let newLeft = e.clientX - offsetX;
-                let newTop = e.clientY - offsetY;
-                const maxLeft = window.innerWidth - element.offsetWidth;
-                const maxTop = window.innerHeight - element.offsetHeight;
-                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
-                newTop = Math.max(0, Math.min(newTop, maxTop));
-
-                element.style.left = newLeft + 'px';
-                element.style.top = newTop + 'px';
-
-                if (isOverDropZone(element)) {
-                    dropZone.classList.add('active');
-                    showIndicator(getInsertBefore(e.clientX));
-                } else {
-                    dropZone.classList.remove('active');
-                    hideIndicator();
-                }
-            });
-
-            document.addEventListener('mouseup', (e) => {
-                if (!isDragging) return;
-                isDragging = false;
-                element.classList.remove('dragging');
-                dropZone.classList.remove('active');
-                hideIndicator();
-
-                if (isOverDropZone(element)) {
-                    dockSquare(element, e.clientX);
-                }
-            });
-
-            element.addEventListener('touchstart', (e) => {
-                let rect;
-                if (element.classList.contains('docked')) {
-                    const r = element.getBoundingClientRect();
-                    element.classList.remove('docked');
-                    container.appendChild(element);
-                    element.classList.add('floating');
-                    element.style.left = r.left + 'px';
-                    element.style.top = r.top + 'px';
-                    rect = r;
-                    updateDockState();
-                } else {
-                    rect = element.getBoundingClientRect();
-                    if (!element.classList.contains('floating')) {
-                        makeFloating(element);
-                    }
-                }
-
-                isDragging = true;
-                element.classList.add('dragging');
-                const touch = e.touches[0];
-                offsetX = touch.clientX - rect.left;
-                offsetY = touch.clientY - rect.top;
-                e.preventDefault();
-            }, { passive: false });
-
-            document.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                const touch = e.touches[0];
-                let newLeft = touch.clientX - offsetX;
-                let newTop = touch.clientY - offsetY;
-                const maxLeft = window.innerWidth - element.offsetWidth;
-                const maxTop = window.innerHeight - element.offsetHeight;
-                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
-                newTop = Math.max(0, Math.min(newTop, maxTop));
-                element.style.left = newLeft + 'px';
-                element.style.top = newTop + 'px';
-                if (isOverDropZone(element)) {
-                    dropZone.classList.add('active');
-                    showIndicator(getInsertBefore(touch.clientX));
-                } else {
-                    dropZone.classList.remove('active');
-                    hideIndicator();
-                }
-                e.preventDefault();
-            }, { passive: false });
-
-            document.addEventListener('touchend', (e) => {
-                if (!isDragging) return;
-                isDragging = false;
-                element.classList.remove('dragging');
-                dropZone.classList.remove('active');
-                hideIndicator();
-                if (isOverDropZone(element)) {
-                    const touch = e.changedTouches[0];
-                    dockSquare(element, touch.clientX);
-                }
-            });
+            let cx, cy;
+            if (e.type === 'touchstart') {
+                const t = e.touches[0] || e.changedTouches[0];
+                cx = t.clientX; cy = t.clientY;
+            } else {
+                cx = e.clientX; cy = e.clientY;
+            }
+            startDrag(el, cx, cy);
+            lastPointer = { x: cx, y: cy };
+            e.preventDefault();
         }
+
+        document.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('touchstart', onPointerDown, { passive: false });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!activeDrag) return;
+            moveDrag(e.clientX, e.clientY);
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!activeDrag) return;
+            const t = e.touches[0] || e.changedTouches[0];
+            moveDrag(t.clientX, t.clientY);
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('mouseup', () => { if (activeDrag) endDrag(); });
+        document.addEventListener('touchend', () => { if (activeDrag) endDrag(); });
+        document.addEventListener('touchcancel', () => { if (activeDrag) { lastPointer = { x: -1, y: -1 }; endDrag(); } });
+
+        document.addEventListener('keydown', (e) => {
+            // Escape — отмена текущего drag или клавиатурного режима
+            if (e.key === 'Escape') {
+                if (activeDrag) {
+                    activeDrag.el.classList.remove('dragging');
+                    dropZone.classList.remove('active');
+                    hideIndicator();
+                    activeDrag = null;
+                    e.preventDefault();
+                    return;
+                }
+                if (kbdEl) {
+                    kbdEl.classList.remove('kbd-active');
+                    kbdEl = null;
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            const el = e.target.closest('.square');
+            if (!el) return;
+
+            // ФИКС 2: полноценный клавиатурный drag
+            if (el.classList.contains('kbd-active')) {
+                const step = e.shiftKey ? 1 : 10;
+                const r = el.getBoundingClientRect();
+                let moved = false;
+                switch (e.key) {
+                    case 'ArrowLeft':  el.style.left = (r.left - step) + 'px'; moved = true; break;
+                    case 'ArrowRight': el.style.left = (r.left + step) + 'px'; moved = true; break;
+                    case 'ArrowUp':    el.style.top  = (r.top - step)  + 'px'; moved = true; break;
+                    case 'ArrowDown':  el.style.top  = (r.top + step)  + 'px'; moved = true; break;
+                    case 'Enter':
+                    case ' ':
+                        {
+                            const cx = r.left + r.width / 2;
+                            const cy = r.top + r.height / 2;
+                            if (pointInDropZone(cx, cy)) {
+                                dockSquare(el, cx);
+                            } else {
+                                el.classList.remove('floating', 'kbd-active');
+                                el.style.left = '';
+                                el.style.top = '';
+                                el.style.width = '';
+                                el.style.height = '';
+                                el.style.position = '';
+                                el.style.transform = '';
+                                el.style.transition = '';
+                                tray.appendChild(el);
+                            }
+                            kbdEl = null;
+                            e.preventDefault();
+                            return;
+                        }
+                }
+                if (moved) {
+                    // Ограничим, чтобы не улетел за экран
+                    const nr = el.getBoundingClientRect();
+                    if (nr.left < 0) el.style.left = '0px';
+                    if (nr.top < 0) el.style.top = '0px';
+                    if (nr.right > window.innerWidth) el.style.left = (window.innerWidth - nr.width) + 'px';
+                    if (nr.bottom > window.innerHeight) el.style.top = (window.innerHeight - nr.height) + 'px';
+                    e.preventDefault();
+                }
+                return;
+            }
+
+            // Взять квадрат с клавиатуры
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (el.classList.contains('docked')) {
+                    // Вынимаем, сохраняя позицию (rect ДО appendChild)
+                    const r = el.getBoundingClientRect();
+                    el.classList.remove('docked');
+                    el.classList.add('floating');
+                    el.style.left = r.left + 'px';
+                    el.style.top = r.top + 'px';
+                    el.style.width = r.width + 'px';
+                    el.style.height = r.height + 'px';
+                    container.appendChild(el);
+                    updateDockState();
+                } else if (!el.classList.contains('floating')) {
+                    // Из трея — делаем floating на том же месте
+                    const r = el.getBoundingClientRect();
+                    el.classList.add('floating');
+                    el.style.left = r.left + 'px';
+                    el.style.top = r.top + 'px';
+                    el.style.width = r.width + 'px';
+                    el.style.height = r.height + 'px';
+                    container.appendChild(el);
+                }
+                el.classList.add('kbd-active');
+                kbdEl = el;
+                el.focus();
+            }
+        });
+
+        // Double-click по летающему квадрату — вернуть в трей
+        document.addEventListener('dblclick', (e) => {
+            const el = e.target.closest('.square');
+            if (!el) return;
+            if (!el.classList.contains('floating')) return;
+            el.classList.remove('floating', 'kbd-active');
+            el.style.left = '';
+            el.style.top = '';
+            el.style.width = '';
+            el.style.height = '';
+            el.style.position = '';
+            el.style.transform = '';
+            el.style.transition = '';
+            if (kbdEl === el) kbdEl = null;
+            tray.appendChild(el);
+        });
+
+        updateDockState();
     </script>
 </body>
 </html>
