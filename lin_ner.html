@@ -19,6 +19,32 @@
             padding: 30px 30px 30px;
             margin-bottom: 20px;
         }
+        .home-link {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #ffffff;
+            color: #1a3e60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 0 0 1.5px #bdd3e6 inset, 0 8px 16px -6px rgba(0, 30, 50, 0.2);
+            z-index: 100;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .home-link:hover { background: #eaf3ff; }
+        .home-link:focus-visible { outline: 3px solid #1a78c2; outline-offset: 3px; }
+        .home-link:active { transform: scale(0.95); }
+        .home-link svg { width: 24px; height: 24px; display: block; }
+
+        @media (max-width: 700px) {
+            .home-link { top: 12px; left: 12px; width: 44px; height: 44px; }
+            .home-link svg { width: 20px; height: 20px; }
+        }
         /* Верхняя панель со статистикой */
         .top-panel {
             display: flex;
@@ -144,6 +170,12 @@
     </style>
 </head>
 <body>
+    <a class="home-link" href="index.html" aria-label="На главную" title="На главную">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 5 L8 12 L15 19" />
+    </svg>
+</a>
 <div class="game-container">
     <!-- Верхняя панель со статистикой -->
     <div class="top-panel">
