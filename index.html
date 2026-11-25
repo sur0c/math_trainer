@@ -3,177 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Главная | Тренажёр уравнений</title>
+    <title>Тренажёры по математике</title>
     <style>
+        /* Базовые настройки и шрифты */
+        :root {
+            --bg-color: #f4f7fb; /* Светло-голубой фон страницы */
+            --card-bg: #ffffff; /* Белый фон карточек */
+            --text-main: #1e293b; /* Темно-синий/серый для текста */
+            --text-muted: #64748b; /* Серый для второстепенного текста */
+            --accent-color: #1e3a5f; /* Темно-синий (как кнопка "Проверить") */
+            --accent-hover: #152a46;
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.05); /* Мягкая тень */
+            --border-radius: 24px; /* Сильное скругление */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            margin: 0;
             padding: 20px;
-            box-sizing: border-box;
-            
-            /* ТВОЙ ФОН */
-            background-image: url('bg.webp'); 
-            background-color: #f0f0f0;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            color: var(--text-main);
         }
-        
-        .landing-card {
-            background: rgba(255, 255, 255, 0.92);
-            padding: 50px 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+
+        /* Контейнер */
+        .container {
+            max-width: 800px;
+            width: 100%;
             text-align: center;
-            max-width: 600px;
-            width: 100%;
-            backdrop-filter: blur(6px);
-            margin-top: auto;
-            margin-bottom: auto;
+            animation: fadeIn 0.5s ease-out;
         }
-        
+
+        /* Основная карточка */
+        .main-card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 80px 40px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
         h1 {
-            color: #333;
-            font-size: 32px;
-            margin-top: 0;
-            margin-bottom: 15px;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--accent-color);
         }
-        
-        p {
-            color: #555;
+
+        p.subtitle {
             font-size: 18px;
-            line-height: 1.6;
-            margin-bottom: 30px;
+            color: var(--text-muted);
+            margin-bottom: 48px;
         }
-        
-        .features {
-            text-align: left;
+
+        /* Кнопка-ссылка */
+        .btn-link {
             display: inline-block;
-            margin-bottom: 30px;
-            color: #444;
-            font-size: 16px;
-        }
-        
-        .features li {
-            margin-bottom: 10px;
-        }
-        
-        /* Группа кнопок */
-        .buttons-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .start-btn {
-            display: block;
-            width: 100%;
-            max-width: 350px;
-            background: #007bff;
+            background-color: var(--accent-color);
             color: white;
             text-decoration: none;
-            padding: 15px 20px;
-            border-radius: 8px;
+            padding: 16px 40px;
+            border-radius: 50px; /* Овальная кнопка */
             font-size: 18px;
-            font-weight: bold;
-            transition: background 0.2s, transform 0.1s;
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-            box-sizing: border-box;
-        }
-        
-        .start-btn:hover {
-            background: #0056b3;
-        }
-        
-        .start-btn:active {
-            transform: scale(0.98);
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(30, 58, 95, 0.2);
         }
 
-        /* Стиль для второй кнопки (линейные уравнения) */
-        .start-btn.secondary {
-            background: #28a745; /* Зелёный цвет, чтобы отличать от квадратных */
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-        }
-        
-        .start-btn.secondary:hover {
-            background: #218838;
+        .btn-link:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 58, 95, 0.3);
         }
 
-        /* Стиль для третьей кнопки (карточки) */
-        .start-btn.tertiary {
-            background: #ff8c00; /* Оранжевый цвет */
-            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
-        }
-        
-        .start-btn.tertiary:hover {
-            background: #e67e00;
+        .btn-link:active {
+            transform: translateY(0);
         }
 
-        .github-link {
-            margin-top: 20px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #999;
-            text-decoration: none;
-            transition: color 0.2s;
-            text-shadow: 0 1px 3px rgba(255,255,255,0.8);
-        }
-
-        .github-link:hover {
-            color: #666;
-            text-decoration: underline;
-        }
-
-        @media (max-width: 500px) {
-            .landing-card {
-                padding: 30px 20px;
-            }
-            h1 {
-                font-size: 26px;
-            }
-            p {
-                font-size: 16px;
-            }
-            .start-btn {
-                font-size: 16px;
-                padding: 12px 15px;
-            }
+        /* Анимация появления */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <div class="landing-card">
-        <h1>Тренажёр уравнений</h1>
-        <p>Выбери тип уравнений для тренировки. Решай, вводи ответ и собирай зелёные квадратики!</p>
-        
-        <ul class="features">
-            <li>📈 Автоматическая генерация уравнений</li>
-            <li>🧠 Только целые корни</li>
-            <li>🟩🟥🟨 Удобная история ответов</li>
-        </ul>
-        
-        <div class="buttons-container">
-            <!-- ССЫЛКА НА КВАДРАТНЫЕ УРАВНЕНИЯ -->
-            <a href="trainer.html" class="start-btn">Квадратные уравнения 🚀</a>
+    <div class="container">
+        <!-- Главная карточка -->
+        <div class="main-card">
+            <h1>Тренажёры по математике</h1>
+            <p class="subtitle">Выберите нужный раздел и начните практику</p>
             
-            <!-- ССЫЛКА НА ЛИНЕЙНЫЕ УРАВНЕНИЯ -->
-            <a href="lin_ur.html" class="start-btn secondary">Линейные уравнения ➡️</a>
-
-            <!-- ССЫЛКА НА СКЛАДЫВАНИЕ КАРТОЧЕК -->
-            <a href="sum.html" class="start-btn tertiary">Складывай карточки 🃏</a>
+            <!-- Ссылка на линейные неравенства -->
+            <a href="lin_ner.html" class="btn-link">Линейные неравенства</a>
         </div>
     </div>
-
-    <a href="https://github.com/sur0c/my-math/tree/main" class="github-link" target="_blank">Исходный код на GitHub</a>
 
 </body>
 </html>
